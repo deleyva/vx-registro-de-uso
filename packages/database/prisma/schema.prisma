@@ -1,0 +1,98 @@
+// Prisma Schema para VX Control Center
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Modelo de Reporte (payload de verificación desde app de escritorio)
+model Report {
+  id                 String   @id @default(cuid())
+  timestamp          DateTime
+  migrasfreeCid      String
+  usuarioGrafico     String
+  verificacionEquipos Json
+  resumen            Json
+
+  createdAt          DateTime @default(now())
+
+  @@index([timestamp])
+  @@index([migrasfreeCid])
+  @@map("reports")
+}
+
+// Modelo de Dispositivo/Equipo
+model Device {
+  id          String   @id @default(cuid())
+  hostname    String   @unique
+  ipAddress   String?
+  macAddress  String?  @unique
+  
+  // Información del sistema
+  osInfo      String?
+  osVersion   String?
+  cpuInfo     String?
+  ramTotal    Float?   // GB
+  diskTotal   Float?   // GB
+  
+  // Estado y control
+  isActive    Boolean  @default(true)
+  lastSeen    DateTime @default(now())
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relaciones
+  usageLogs   UsageLog[]
+  
+  @@index([hostname])
+  @@index([isActive])
+  @@index([lastSeen])
+  @@map("devices")
+}
+
+// Modelo de Log de Uso
+model UsageLog {
+  id            String   @id @default(cuid())
+  deviceId      String
+  
+  // Métricas de uso
+  cpuUsage      Float?   // Porcentaje
+  ramUsage      Float?   // GB usados
+  diskUsage     Float?   // GB usados
+  uptime        Int?     // Segundos
+  processCount  Int?
+  
+  // Estado del usuario
+  userActive    Boolean  @default(false)
+  
+  // Timestamp
+  timestamp     DateTime @default(now())
+  
+  // Relaciones
+  device        Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  
+  @@index([deviceId])
+  @@index([timestamp])
+  @@map("usage_logs")
+}
+
+// Modelo de Usuario (para futuro sistema de auth)
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String
+  role      String   @default("user")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([email])
+  @@map("users")
+}
