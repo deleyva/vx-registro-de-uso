@@ -14,6 +14,10 @@
 - Se rediseñó el dashboard para centrarse en reportes con filtros y ticks por componente.
 - Se corrigió el warning de hydration mismatch con `suppressHydrationWarning` (atributos inyectados por extensiones).
 - Se unificó la cabecera de filtros y la tabla en una única caja.
+- Se añadió `AGENTS.md` con roles, flujo de trabajo, convenciones y checklist para cambios de DB.
+- Se completó `README.md` con guía de ejecución local usando `pnpm`, variables de entorno, endpoints y ejemplos de `curl`.
+- Se ajustaron ejemplos `curl` del README para que sean copy/paste friendly y para que el script de 10 reportes use el mismo payload que el ejemplo real.
+- Se ajustó `ReportsTable` para poder renderizarse sin header (prop `showHeader`) y así integrarse dentro del contenedor unificado.
 
 ### Validación
 
