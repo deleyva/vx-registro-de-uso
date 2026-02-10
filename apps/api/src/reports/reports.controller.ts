@@ -6,12 +6,12 @@ import { CreateReportDto } from './dto/create-report.dto';
 @ApiTags('reports')
 @Controller('v1/report')
 export class ReportsController {
-  constructor(private readonly reportsService: ReportsService) {}
+  constructor(private readonly reportsService: ReportsService) { }
 
   @Post()
   @ApiOperation({ summary: 'Registrar un reporte de verificación' })
   @ApiResponse({ status: 201, description: 'Reporte registrado' })
-  create(@Body() dto: CreateReportDto) {
+  create(@Body() dto: CreateReportDto): Promise<any> {
     return this.reportsService.create(dto);
   }
 
@@ -24,7 +24,7 @@ export class ReportsController {
     @Query('to') to?: string,
     @Query('onlyErrors') onlyErrors?: string,
     @Query('component') component?: string,
-  ) {
+  ): Promise<any> {
     const limitNum = limit ? parseInt(limit, 10) : 50;
 
     const fromDate = from ? new Date(from) : undefined;
@@ -43,7 +43,7 @@ export class ReportsController {
   @ApiOperation({ summary: 'Obtener un reporte por ID' })
   @ApiResponse({ status: 200, description: 'Reporte encontrado' })
   @ApiResponse({ status: 404, description: 'Reporte no encontrado' })
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('id') id: string): Promise<any> {
     const report = await this.reportsService.findOne(id);
     if (!report) throw new NotFoundException(`Report ${id} not found`);
     return report;

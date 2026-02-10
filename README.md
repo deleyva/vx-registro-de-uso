@@ -18,7 +18,7 @@ El foco actual del producto es **Reportes**.
 
 -   Node.js `>= 20`
 -   pnpm `>= 9`
--   Docker (solo para PostgreSQL en local)
+-   Docker (para PostgreSQL o para ejecutar todo el stack)
 
 ## Estructura
 
@@ -87,6 +87,21 @@ pnpm --filter @vx/api dev
 ```bash
 pnpm --filter @vx/web dev
 ```
+
+## Ejecutar todo con Docker (Full Stack)
+
+Para levantar la aplicación completa (API, Web y Base de Datos) en contenedores:
+
+```bash
+docker compose up --build
+```
+
+Esto desplegará:
+
+-   **Web**: <http://localhost:3000>
+-   **API**: <http://localhost:3001>
+-   **PostgreSQL**: Puerto `5432` (interno), expuesto en `5433` (externo).
+
 
 ### URLs
 

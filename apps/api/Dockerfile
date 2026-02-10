@@ -30,7 +30,8 @@ COPY --from=dependencies /app/apps/api/node_modules ./apps/api/node_modules
 # Copiar código fuente
 COPY . .
 
-# Generar cliente de Prisma
+# Generar Prisma Client
+RUN pnpm add -w @prisma/client
 RUN cd packages/database && pnpm prisma generate
 
 # Compilar la aplicación
@@ -46,15 +47,21 @@ RUN npm install -g pnpm@9.14.2
 
 # Copiar node_modules y build
 COPY --from=build /app/apps/api/dist ./dist
-COPY --from=build /app/apps/api/node_modules ./node_modules
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build /app/apps/api/package.json ./
 COPY --from=build /app/packages ./packages
+COPY --from=build /app/packages ./packages
+
+# Fix @vx/database resolution to use compiled JS instead of TS
+RUN sed -i 's|"./src/index.ts"|"/app/dist/packages/database/src/index.js"|g' packages/database/package.json
 
 # Variables de entorno por defecto
 ENV NODE_ENV=production
+ENV NODE_PATH=./apps/api/node_modules
 ENV API_PORT=3001
 ENV API_HOST=0.0.0.0
 
 EXPOSE 3001
 
-CMD ["node", "dist/main"]
+CMD ["node", "dist/apps/api/src/main"]

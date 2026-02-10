@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2026-02-10
+
+### Fixes & Infraestructura
+
+- **Docker**: Se solucionaron errores de build y ejecución en los contenedores de API y Web.
+    - Se añadió `.dockerignore` para evitar contaminación del contexto de build con binarios de macOS.
+    - Se corrigió la resolución de módulos en el Dockerfile de la API (simulando hoisting de `@prisma/client` y parcheando paths).
+    - Se aseguró la creación de directorios necesarios (`apps/web/public`).
+- **TypeScript**: Se corrigieron errores de compilación (TS2742) en `reports.controller.ts` añadiendo tipos de retorno explícitos.
+- **Prisma**: Se ajustó la generación del cliente Prisma dentro del Dockerfile para asegurar su disponibilidad en `node_modules` raíz del contenedor.
+
 ## 2025-12-14
 
 ### Cambios
