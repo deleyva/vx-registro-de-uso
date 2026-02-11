@@ -56,6 +56,10 @@ COPY --from=build /app/packages ./packages
 # Fix @vx/database resolution to use compiled JS instead of TS
 RUN sed -i 's|"./src/index.ts"|"/app/dist/packages/database/src/index.js"|g' packages/database/package.json
 
+# Copiar entrypoint que ejecuta migraciones antes de arrancar
+COPY apps/api/docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+
 # Variables de entorno por defecto
 ENV NODE_ENV=production
 ENV NODE_PATH=./apps/api/node_modules
@@ -64,4 +68,4 @@ ENV API_HOST=0.0.0.0
 
 EXPOSE 3001
 
-CMD ["node", "dist/apps/api/src/main"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
