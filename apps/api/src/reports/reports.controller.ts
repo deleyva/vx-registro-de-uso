@@ -24,18 +24,21 @@ export class ReportsController {
     @Query('to') to?: string,
     @Query('onlyErrors') onlyErrors?: string,
     @Query('component') component?: string,
+    @Query('onlyOperativo') onlyOperativo?: string,
   ): Promise<any> {
     const limitNum = limit ? parseInt(limit, 10) : 50;
 
     const fromDate = from ? new Date(from) : undefined;
     const toDate = to ? new Date(to) : undefined;
     const onlyErrorsBool = onlyErrors === 'true' ? true : onlyErrors === 'false' ? false : undefined;
+    const onlyOperativoBool = onlyOperativo === 'true' ? true : onlyOperativo === 'false' ? false : undefined;
 
     return this.reportsService.findAll(limitNum, {
       from: fromDate && !Number.isNaN(fromDate.getTime()) ? fromDate : undefined,
       to: toDate && !Number.isNaN(toDate.getTime()) ? toDate : undefined,
       onlyErrors: onlyErrorsBool,
       component,
+      onlyOperativo: onlyOperativoBool,
     });
   }
 

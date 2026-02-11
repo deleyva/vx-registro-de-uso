@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsISO8601, IsObject, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsISO8601, IsObject, IsOptional, IsString } from 'class-validator';
 
 export class CreateReportDto {
   @ApiProperty({ example: '2025-12-14T07:59:26.463Z' })
@@ -13,6 +13,16 @@ export class CreateReportDto {
   @ApiProperty({ example: 'MOCK_USER_DELEYVA' })
   @IsString()
   usuario_grafico: string;
+
+  @ApiPropertyOptional({ example: 'VITALINUX' })
+  @IsOptional()
+  @IsString()
+  empresa?: string;
+
+  @ApiPropertyOptional({ example: 'equipos_escritorio' })
+  @IsOptional()
+  @IsString()
+  tipo_verificacion?: string;
 
   @ApiProperty({
     example: {

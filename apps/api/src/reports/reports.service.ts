@@ -8,6 +8,7 @@ type ReportFilters = {
   to?: Date;
   onlyErrors?: boolean;
   component?: string;
+  onlyOperativo?: boolean;
 };
 
 @Injectable()
@@ -48,7 +49,14 @@ export class ReportsService {
         const ve = r.verificacionEquipos as unknown as Record<string, any>;
         const entry = ve?.[filters.component];
         if (!entry) return false;
-        if (filters.onlyErrors && entry?.estado !== 'defectuoso') return false;
+        // Always filter by defectuoso when component is selected
+        if (entry?.estado !== 'defectuoso') return false;
+      }
+
+      if (filters.onlyOperativo !== undefined) {
+        const resumen = r.resumen as unknown as Record<string, unknown>;
+        const operativo = Boolean(resumen?.equipo_operativo);
+        if (filters.onlyOperativo !== operativo) return false;
       }
 
       return true;

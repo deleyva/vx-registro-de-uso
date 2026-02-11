@@ -106,14 +106,13 @@ export function ReportsTable({ reports, showHeader = true }: ReportsTableProps) 
                 </th>
               ))}
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Operativo</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Requiere atención</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Creado</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {reports.length === 0 ? (
               <tr>
-                <td colSpan={6 + components.length} className="px-6 py-12 text-center text-muted-foreground">
+                <td colSpan={5 + components.length} className="px-6 py-12 text-center text-muted-foreground">
                   No hay reportes aún
                 </td>
               </tr>
@@ -137,15 +136,6 @@ export function ReportsTable({ reports, showHeader = true }: ReportsTableProps) 
                       }`}
                     >
                       {r.resumen?.equipo_operativo ? 'Sí' : 'No'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        r.resumen?.requiere_atencion ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' : 'bg-gray-100 text-gray-700 dark:bg-gray-700/40 dark:text-gray-200'
-                      }`}
-                    >
-                      {r.resumen?.requiere_atencion ? 'Sí' : 'No'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">

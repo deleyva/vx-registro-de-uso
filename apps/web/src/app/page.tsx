@@ -13,6 +13,7 @@ export default function HomePage() {
   const [to, setTo] = useState('');
   const [onlyErrors, setOnlyErrors] = useState(false);
   const [component, setComponent] = useState('');
+  const [onlyOperativo, setOnlyOperativo] = useState('');
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -24,7 +25,7 @@ export default function HomePage() {
 
   useEffect(() => {
     fetchReports();
-  }, [from, to, onlyErrors, component]);
+  }, [from, to, onlyErrors, component, onlyOperativo]);
 
   async function fetchData() {
     try {
@@ -43,6 +44,7 @@ export default function HomePage() {
     if (to) params.set('to', new Date(to).toISOString());
     if (onlyErrors) params.set('onlyErrors', 'true');
     if (component) params.set('component', component);
+    if (onlyOperativo) params.set('onlyOperativo', onlyOperativo);
 
     const res = await fetch(`${API_URL}/v1/report?${params.toString()}`);
     if (res.ok) {
@@ -143,6 +145,17 @@ export default function HomePage() {
                   <option value="raton">Ratón</option>
                   <option value="bateria">Batería</option>
                   <option value="otros">Otros</option>
+                </select>
+
+                <select
+                  value={onlyOperativo}
+                  onChange={(e) => setOnlyOperativo(e.target.value)}
+                  aria-label="Filtrar por operativo"
+                  className="px-3 py-2 rounded-lg border border-border bg-background text-foreground"
+                >
+                  <option value="">Todos</option>
+                  <option value="true">Solo operativos</option>
+                  <option value="false">Solo NO operativos</option>
                 </select>
               </div>
             </div>

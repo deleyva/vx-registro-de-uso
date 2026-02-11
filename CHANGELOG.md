@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## TODO (2026-02-12)
+- [ ] Quitar columna "Requiere Atención" del dashboard
+- [ ] Quitar columna "Creado" del dashboard
+
+## 2026-02-11
+
+### Fixed
+- **vx-login-app**: Eliminados campos `empresa` y `tipo_verificacion` del payload JSON
+  - El servidor rechazaba estos campos con error 400 (forbidNonWhitelisted)
+  - Ahora el formulario envía correctamente a la API
+
+### Added
+- **vx-login-app**: Debug output en `main.rs` para diagnóstico
+  - `[DEBUG] VX_API_URL = ...` al iniciar
+  - `[DEBUG] Sending to: ...` y `[DEBUG] Payload: ...` al enviar
+  - `[ERROR] Response body: ...` muestra el cuerpo del error del servidor
+
 ## 2026-02-10
 
 ### Fixes & Infraestructura
