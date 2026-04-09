@@ -1,0 +1,38 @@
+<div
+  id="report-detail-modal"
+  class="hidden fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Detalles del componente"
+  onclick="if (event.target === this) this.classList.add('hidden')"
+>
+  <div class="w-full max-w-lg bg-white rounded-xl shadow-xl border border-gray-200">
+    <div class="p-5 border-b border-gray-200 flex items-center justify-between">
+      <div>
+        <div class="text-sm text-gray-500" id="rdm-cid">—</div>
+        <h3 class="text-lg font-bold text-gray-900" id="rdm-component">—</h3>
+      </div>
+      <button
+        type="button"
+        onclick="document.getElementById('report-detail-modal').classList.add('hidden')"
+        class="px-3 py-1 rounded-lg border border-gray-300 text-sm text-gray-900 hover:bg-gray-100"
+      >
+        Cerrar
+      </button>
+    </div>
+    <div class="p-5 space-y-3">
+      <div class="text-sm">
+        <span class="text-gray-500">Estado:</span>
+        <span class="font-medium text-gray-900" id="rdm-estado">—</span>
+      </div>
+      <div class="text-sm">
+        <span class="text-gray-500">Obligatorio:</span>
+        <span class="font-medium text-gray-900" id="rdm-obligatorio">—</span>
+      </div>
+      <div class="text-sm">
+        <span class="text-gray-500">Problema:</span>
+        <span class="font-medium text-gray-900" id="rdm-problema">—</span>
+      </div>
+    </div>
+  </div>
+</div>

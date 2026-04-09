@@ -1,171 +1,194 @@
 # VX Control Center
 
-## Objetivo del proyecto
+Sistema de registro y monitoreo de equipos del IES Martina Bescós. Recibe reportes de verificación de un agente externo (MigrasFree) y los muestra en un panel web.
 
-El objetivo del proyecto es crear un sistema que permita registrar los reportes de verificación de equipos en el VX Control Center.
+## Stack
 
-## Arquitectura
+- **Runtime**: Python 3.12
+- **Framework**: FastAPI + Uvicorn
+- **ORM**: SQLAlchemy 2.0 (async, Mapped API)
+- **DB**: PostgreSQL 16
+- **Migrations**: Alembic
+- **Templates**: Jinja2 + HTMX 2.0 + Tailwind v4
+- **Package manager**: uv
+- **Tests**: pytest + httpx
 
-Monorepo (Turborepo + pnpm) con:
+Single-container app (FastAPI serves both the `/v1/report*` API and the web panel). Designed to be deployed on the existing Docker host replacing the old Turborepo (NestJS + Next.js) monorepo.
 
--   **API**: NestJS + Prisma (PostgreSQL)
--   **Web**: Next.js (App Router)
--   **DB**: Prisma schema en `packages/database/prisma/schema.prisma`
+## Architecture
 
-El foco actual del producto es **Reportes**.
-
-## Requisitos
-
--   Node.js `>= 20`
--   pnpm `>= 9`
--   Docker (para PostgreSQL o para ejecutar todo el stack)
-
-## Estructura
-
-```text
-apps/
-  api/   # NestJS
-  web/   # Next.js
-packages/
-  database/  # Prisma + migraciones
-  types/     # Tipos compartidos
+```
+┌──────────────┐     POST /v1/report      ┌────────────┐
+│  MigrasFree  │ ────────────────────────>│            │
+│   (agent)    │                          │            │
+└──────────────┘                          │  FastAPI   │    ┌──────────┐
+                                          │   :3001    │ ──>│ Postgres │
+┌──────────────┐     GET /                │            │    │  :5433   │
+│   Browser    │ ────────────────────────>│            │    └──────────┘
+│  (panel web) │     HTMX                 │            │
+└──────────────┘                          └────────────┘
 ```
 
-## Setup rápido (local)
+Two host ports are mapped to the same container port `3001`:
+- `3001:3001` — canonical API port, used by MigrasFree and Swagger (`/api/docs`).
+- `3000:3001` — alias kept so old bookmarks to `http://host:3000/` still work.
 
-### 1) Instalar dependencias
+## Endpoints
 
-Este monorepo usa **pnpm workspaces**. Para evitar inconsistencias, usa `pnpm` (no `npm`/`npx`).
+| Method | Path | Description |
+|---|---|---|
+| POST | `/v1/report` | Receive verification report (snake_case payload, returns camelCase) |
+| GET | `/v1/report` | List reports (filters: `limit`, `from`, `to`, `onlyErrors`, `component`, `onlyOperativo`) |
+| GET | `/v1/report/{id}` | Single report by id |
+| GET | `/` | Web panel (HTMX) |
+| GET | `/reports/{id}/component/{component}` | Modal fragment for component detail |
+| GET | `/health` | Liveness check (runs `SELECT 1`) |
+| GET | `/api/docs` | Swagger UI |
+| GET | `/api/openapi.json` | OpenAPI schema |
+
+### POST `/v1/report` payload
+
+```json
+{
+  "timestamp": "2026-04-09T07:59:26.463Z",
+  "migrasfree_cid": "12345",
+  "usuario_grafico": "MOCK_USER",
+  "empresa": "VITALINUX",                      // accepted silently, not stored
+  "tipo_verificacion": "equipos_escritorio",   // accepted silently, not stored
+  "verificacion_equipos": {
+    "pantalla": { "estado": "correcto", "problema": null, "obligatorio": true },
+    "raton":    { "estado": "defectuoso", "problema": "no responde", "obligatorio": true }
+  },
+  "resumen": {
+    "total_componentes": 5,
+    "equipo_operativo": false,
+    "requiere_atencion": true
+  }
+}
+```
+
+Unknown fields are accepted silently (Pydantic `extra="ignore"`).
+
+Response shape (camelCase):
+```json
+{
+  "id": "kpv1jqy6b2...",
+  "timestamp": "2026-04-09T07:59:26.463000Z",
+  "migrasfreeCid": "12345",
+  "usuarioGrafico": "MOCK_USER",
+  "verificacionEquipos": { ... },
+  "resumen": { ... },
+  "createdAt": "2026-04-09T13:14:22.123456Z"
+}
+```
+
+## Environment variables
+
+See `.env.example`.
+
+| Var | Default | Description |
+|---|---|---|
+| `DATABASE_URL` | `postgresql+asyncpg://postgres:postgres@localhost:5433/vx_control` | Async driver for the app; `+asyncpg` is inserted automatically if missing. |
+| `APP_PORT` | `3001` | Uvicorn bind port inside the container. |
+| `ENVIRONMENT` | `development` | Free-form tag (`development`/`production`). |
+| `CORS_ORIGINS` | `http://localhost:3000,http://localhost:3001,http://100.99.123.84:3000` | Comma-separated list of allowed origins. |
+
+## Local development
+
+Prereqs: `uv` (>= 0.5), Docker.
 
 ```bash
-pnpm install
+# 1. install deps
+uv sync
+
+# 2. start a Postgres
+docker run -d --name vx-postgres-dev \
+  -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=vx_control \
+  -p 5433:5432 postgres:16-alpine
+
+# 3. apply migrations
+uv run alembic upgrade head
+
+# 4. run server
+uv run uvicorn app.main:app --reload --port 3001
+
+# 5. run tests
+uv run pytest -v
+
+# 6. new migration (after editing models/)
+uv run alembic revision --autogenerate -m "describe change"
+uv run alembic upgrade head
+
+# 7. rebuild Tailwind (after editing templates/)
+uv run tailwindcss -i src/app/static/css/tailwind.src.css -o src/app/static/css/tailwind.css --minify
 ```
 
-### 2) Levantar PostgreSQL (Docker)
+## Docker (production)
 
 ```bash
-pnpm docker:up postgres
+# build + start
+docker compose up --build -d
+
+# logs
+docker compose logs -f app
+
+# stop
+docker compose down
+
+# stop + wipe DB volume
+docker compose down -v
 ```
 
-Postgres queda expuesto en `localhost:5433`.
+On startup the container runs `alembic upgrade head` before launching Uvicorn.
 
-### 3) Variables de entorno
+## Project layout
 
-El repo usa `DATABASE_URL` (API/Prisma) y `NEXT_PUBLIC_API_URL` (Web).
-
--   **API**: `DATABASE_URL` debe apuntar a tu Postgres local.
--   **Web**: `NEXT_PUBLIC_API_URL` debe apuntar a la API.
-
-Valores típicos para local:
-
-```bash
-# API
-DATABASE_URL="postgresql://postgres:postgres@localhost:5433/vx_control?schema=public"
-PORT=3001
-
-# WEB
-NEXT_PUBLIC_API_URL="http://localhost:3001"
 ```
-
-Nota: en `docker-compose.yml` aparecen valores de referencia para producción/containers.
-
-### 4) Migraciones y Prisma Client
-
-```bash
-pnpm db:migrate
-pnpm db:generate
+.
+├── src/app/
+│   ├── main.py              # FastAPI app, routers, CORS, static files
+│   ├── core/
+│   │   ├── config.py        # pydantic-settings
+│   │   ├── ids.py           # cuid2 generator
+│   │   └── logging.py
+│   ├── db/
+│   │   ├── base.py          # DeclarativeBase
+│   │   └── session.py       # async_engine, get_db dependency
+│   ├── models/
+│   │   └── report.py        # Report ORM model (camelCase column names)
+│   ├── schemas/
+│   │   ├── camel.py         # CamelModel base (alias_generator)
+│   │   └── reports.py       # CreateReportRequest + ReportResponse
+│   ├── services/
+│   │   └── reports.py       # create, find_all (in-memory filters), find_one
+│   ├── routers/
+│   │   ├── health.py        # GET /health
+│   │   ├── reports_v1.py    # POST/GET /v1/report, GET /v1/report/{id}
+│   │   └── web.py           # GET / (HTMX panel), GET /reports/{id}/component/{c}
+│   ├── templates/           # Jinja2
+│   │   ├── base.html
+│   │   ├── index.html
+│   │   └── partials/
+│   │       ├── reports_table.html
+│   │       └── report_detail_modal.html
+│   └── static/
+│       ├── css/
+│       │   ├── tailwind.src.css
+│       │   └── tailwind.css     # compiled, committed
+│       └── vendor/
+│           └── htmx.min.js
+├── migrations/               # Alembic
+│   └── versions/
+├── tests/
+│   ├── conftest.py           # TRUNCATE-per-test isolation, NullPool engine
+│   ├── test_health.py
+│   ├── test_schemas_reports.py
+│   └── test_reports_v1.py    # parity suite with NestJS
+├── Dockerfile
+├── docker-entrypoint.sh
+├── docker-compose.yml
+├── alembic.ini
+├── pyproject.toml
+├── uv.lock
+└── .env.example
 ```
-
-## Ejecutar en desarrollo
-
-En terminales separadas:
-
-```bash
-pnpm --filter @vx/api dev
-```
-
-```bash
-pnpm --filter @vx/web dev
-```
-
-## Ejecutar todo con Docker (Full Stack)
-
-Para levantar la aplicación completa (API, Web y Base de Datos) en contenedores:
-
-```bash
-docker compose up --build
-```
-
-Esto desplegará:
-
--   **Web**: <http://localhost:3000>
--   **API**: <http://localhost:3001>
--   **PostgreSQL**: Puerto `5432` (interno), expuesto en `5433` (externo).
-
-
-### URLs
-
--   **Web**: <http://localhost:3000>
--   **API**: <http://localhost:3001>
--   **Swagger**: <http://localhost:3001/api/docs>
-
-## Endpoints principales
-
--   **Crear reporte**: `POST /v1/report`
--   **Listar reportes**: `GET /v1/report?limit=20&from=YYYY-MM-DD&to=YYYY-MM-DD&onlyErrors=true&component=pantalla`
--   **Detalle de reporte**: `GET /v1/report/:id`
-
-## Ejemplos con curl
-
-### Crear 1 reporte
-
-```bash
-curl -X POST http://localhost:3001/v1/report \
-  -H 'Content-Type: application/json' \
-  -d '{"timestamp":"2025-12-14T07:59:26.463Z","verificacion_equipos":{"pantalla":{"estado":"correcto","problema":null,"obligatorio":true},"teclado":{"estado":"correcto","problema":null,"obligatorio":true},"raton":{"estado":"defectuoso","problema":"La rueda no funciona","obligatorio":false},"bateria":{"estado":"correcto","problema":null,"obligatorio":false},"otros":{"estado":"defectuoso","problema":"ventiladores hacen ruído.","obligatorio":false}},"resumen":{"total_componentes":5,"componentes_obligatorios":2,"componentes_opcionales":3,"componentes_verificados":5,"componentes_correctos":3,"componentes_defectuosos":2,"equipo_operativo":false,"requiere_atencion":true},"migrasfree_cid":"12345","usuario_grafico":"MOCK_USER_DELEYVA"}'
-```
-
-### Crear 10 reportes de prueba (macOS / zsh)
-
-Ejecuta esto en tu terminal (necesita API corriendo en `localhost:3001`):
-
-```bash
-for i in $(seq 1 10); do
-  ts=$(date -u -v-${i}H +%Y-%m-%dT%H:%M:%S.000Z)
-  cid=$((10000+i))
-  user="USER_${i}"
-
-  pantalla_estado=correcto
-  teclado_estado=correcto
-  bateria_estado=correcto
-  raton_estado=$([ $((i % 3)) -eq 0 ] && echo defectuoso || echo correcto)
-  otros_estado=$([ $((i % 4)) -eq 0 ] && echo defectuoso || echo correcto)
-
-  correctos=0
-  defectuosos=0
-  for st in "$pantalla_estado" "$teclado_estado" "$raton_estado" "$bateria_estado" "$otros_estado"; do
-    if [ "$st" = "defectuoso" ]; then defectuosos=$((defectuosos + 1)); else correctos=$((correctos + 1)); fi
-  done
-
-  equipo_operativo=$([ $defectuosos -eq 0 ] && echo true || echo false)
-  requiere_atencion=$([ $defectuosos -eq 0 ] && echo false || echo true)
-
-  payload=$(cat <<JSON
-{"timestamp":"$ts","verificacion_equipos":{"pantalla":{"estado":"$pantalla_estado","problema":null,"obligatorio":true},"teclado":{"estado":"$teclado_estado","problema":null,"obligatorio":true},"raton":{"estado":"$raton_estado","problema":$([ "$raton_estado" = "defectuoso" ] && echo '"La rueda no funciona"' || echo null),"obligatorio":false},"bateria":{"estado":"$bateria_estado","problema":null,"obligatorio":false},"otros":{"estado":"$otros_estado","problema":$([ "$otros_estado" = "defectuoso" ] && echo '"ventiladores hacen ruido."' || echo null),"obligatorio":false}},"resumen":{"total_componentes":5,"componentes_obligatorios":2,"componentes_opcionales":3,"componentes_verificados":5,"componentes_correctos":$correctos,"componentes_defectuosos":$defectuosos,"equipo_operativo":$equipo_operativo,"requiere_atencion":$requiere_atencion},"migrasfree_cid":"$cid","usuario_grafico":"$user"}
-JSON
-)
-
-  curl -sS -X POST http://localhost:3001/v1/report \
-    -H 'Content-Type: application/json' \
-    -d "$payload" \
-    >/dev/null
-done
-
-echo "OK: 10 reportes creados"
-```
-
-## Troubleshooting
-
--   Si la Web no muestra nada, verifica que `NEXT_PUBLIC_API_URL` apunte a la API.
--   Si Prisma falla conectando, revisa `DATABASE_URL` (puerto `5433` en local).
--   Swagger no lista `/v1/*` (solo `/api/*`). Los endpoints `/v1/report` son públicos para el cliente de escritorio.

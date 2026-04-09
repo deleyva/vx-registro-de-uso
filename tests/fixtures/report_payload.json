@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-04-09T07:59:26.463Z",
+  "migrasfree_cid": "12345",
+  "usuario_grafico": "MOCK_USER_DELEYVA",
+  "empresa": "VITALINUX",
+  "tipo_verificacion": "equipos_escritorio",
+  "verificacion_equipos": {
+    "pantalla": { "estado": "correcto", "problema": null, "obligatorio": true },
+    "teclado": { "estado": "correcto", "problema": null, "obligatorio": true },
+    "raton": { "estado": "defectuoso", "problema": "no responde", "obligatorio": true },
+    "bateria": { "estado": "correcto", "problema": null, "obligatorio": false },
+    "otros": { "estado": "correcto", "problema": null, "obligatorio": false }
+  },
+  "resumen": {
+    "total_componentes": 5,
+    "equipo_operativo": false,
+    "requiere_atencion": true
+  }
+}

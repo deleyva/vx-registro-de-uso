@@ -1,0 +1,71 @@
+<div class="overflow-x-auto">
+  <table class="w-full">
+    <thead class="bg-gray-50">
+      <tr>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CID</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
+        {% for c in components %}
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            {{ component_labels.get(c, c) }}
+          </th>
+        {% endfor %}
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Operativo</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Creado</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-200">
+      {% if reports|length == 0 %}
+        <tr>
+          <td colspan="{{ 5 + components|length }}" class="px-6 py-12 text-center text-gray-500">
+            No hay reportes aún
+          </td>
+        </tr>
+      {% else %}
+        {% for r in reports %}
+          <tr class="hover:bg-gray-50 transition-colors">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+              {{ r.timestamp | es_datetime }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ r.migrasfree_cid }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ r.usuario_grafico }}</td>
+
+            {% for c in components %}
+              {% set item = r.verificacion_equipos.get(c) %}
+              <td class="px-6 py-4 whitespace-nowrap">
+                {% if item is none %}
+                  <span class="text-xs text-gray-400">—</span>
+                {% else %}
+                  {% set ok = item.get('estado') == 'correcto' %}
+                  <button
+                    type="button"
+                    title="{{ component_labels.get(c, c) }} · {{ item.get('estado') or '' }}{% if item.get('problema') %} · {{ item.get('problema') }}{% endif %}"
+                    class="inline-flex items-center justify-center {% if ok %}text-green-600{% else %}text-red-600{% endif %}"
+                    onclick="document.getElementById('report-detail-modal').classList.remove('hidden'); document.getElementById('rdm-component').textContent='{{ component_labels.get(c, c) }}'; document.getElementById('rdm-cid').textContent='{{ r.migrasfree_cid }}'; document.getElementById('rdm-estado').textContent='{{ item.get('estado') or 'N/A' }}'; document.getElementById('rdm-obligatorio').textContent='{% if item.get('obligatorio') == True %}Sí{% elif item.get('obligatorio') == False %}No{% else %}N/A{% endif %}'; document.getElementById('rdm-problema').textContent='{{ item.get('problema') or '—' }}';"
+                  >
+                    {% if ok %}
+                      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    {% else %}
+                      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                    {% endif %}
+                  </button>
+                {% endif %}
+              </td>
+            {% endfor %}
+
+            <td class="px-6 py-4 whitespace-nowrap">
+              {% if r.resumen.get('equipo_operativo') %}
+                <span class="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Sí</span>
+              {% else %}
+                <span class="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">No</span>
+              {% endif %}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              {{ r.created_at | es_relative }}
+            </td>
+          </tr>
+        {% endfor %}
+      {% endif %}
+    </tbody>
+  </table>
+</div>

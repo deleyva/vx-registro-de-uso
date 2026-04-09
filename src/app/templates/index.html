@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}VX Reportes — Verificación de equipos{% endblock %}
+
+{% block body %}
+<header class="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-10">
+  <div class="container mx-auto px-4 py-4 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">VX Reportes</h1>
+      <p class="text-sm text-gray-500">Verificación de equipos (app de escritorio → API)</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="h-2 w-2 bg-green-500 rounded-full animate-pulse"></span>
+      <span class="text-sm text-gray-500">En vivo</span>
+    </div>
+  </div>
+</header>
+
+<main class="container mx-auto px-4 py-8">
+  <div class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+    <div class="p-6 border-b border-gray-200">
+      <form
+        hx-get="/"
+        hx-target="#reports-container"
+        hx-swap="innerHTML"
+        hx-push-url="true"
+        hx-include="this"
+        class="flex items-center gap-3 flex-wrap"
+      >
+        <input type="hidden" name="partial" value="1" />
+
+        <div class="flex items-center gap-3">
+          <h2 class="text-xl font-bold text-gray-900">Reportes</h2>
+        </div>
+
+        <label class="text-sm text-gray-500">
+          Desde
+          <input
+            type="date"
+            name="from"
+            value="{{ filters['from'] }}"
+            class="ml-2 px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-900"
+          />
+        </label>
+
+        <label class="text-sm text-gray-500">
+          Hasta
+          <input
+            type="date"
+            name="to"
+            value="{{ filters['to'] }}"
+            class="ml-2 px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-900"
+          />
+        </label>
+
+        <label class="text-sm text-gray-500 flex items-center gap-2">
+          <input
+            type="checkbox"
+            name="onlyErrors"
+            value="true"
+            {% if filters['onlyErrors'] %}checked{% endif %}
+          />
+          Solo con errores
+        </label>
+
+        <select
+          name="component"
+          aria-label="Filtrar por componente"
+          class="px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-900"
+        >
+          <option value="">Todos los componentes</option>
+          {% for k, label in component_labels.items() %}
+            <option value="{{ k }}" {% if filters['component'] == k %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+
+        <select
+          name="onlyOperativo"
+          aria-label="Filtrar por operativo"
+          class="px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-900"
+        >
+          <option value="" {% if not filters['onlyOperativo'] %}selected{% endif %}>Todos</option>
+          <option value="true" {% if filters['onlyOperativo'] == 'true' %}selected{% endif %}>Solo operativos</option>
+          <option value="false" {% if filters['onlyOperativo'] == 'false' %}selected{% endif %}>Solo NO operativos</option>
+        </select>
+
+        <button
+          type="submit"
+          class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+        >
+          Filtrar
+        </button>
+      </form>
+    </div>
+
+    <div
+      id="reports-container"
+      hx-get="/?partial=1"
+      hx-trigger="load, every 30s"
+      hx-swap="innerHTML"
+    >
+      {% include "partials/reports_table.html" %}
+    </div>
+  </div>
+</main>
+
+<footer class="mt-16 py-6 border-t border-gray-200 bg-white/50">
+  <div class="container mx-auto px-4 text-center text-sm text-gray-500">
+    <p>VX Control Center — FastAPI + SQLAlchemy + HTMX (Python rewrite)</p>
+  </div>
+</footer>
+
+{% include "partials/report_detail_modal.html" %}
+{% endblock %}

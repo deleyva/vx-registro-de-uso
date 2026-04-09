@@ -1,0 +1,4 @@
+@import "tailwindcss";
+
+/* Tailwind v4 uses @source directives instead of tailwind.config.js content paths */
+@source "../../templates/**/*.html";
