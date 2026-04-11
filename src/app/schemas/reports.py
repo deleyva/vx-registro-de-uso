@@ -18,7 +18,7 @@ class CreateReportRequest(BaseModel):
     """
 
     timestamp: datetime
-    migrasfree_cid: str
+    migasfree_cid: str
     usuario_grafico: str
     empresa: str | None = None
     tipo_verificacion: str | None = None
@@ -32,13 +32,13 @@ class ReportResponse(CamelModel):
     """Response shape returned to clients.
 
     Serialized JSON keys (camelCase):
-        id, timestamp, migrasfreeCid, usuarioGrafico, verificacionEquipos,
+        id, timestamp, migasfreeCid, usuarioGrafico, verificacionEquipos,
         resumen, createdAt
     """
 
     id: str
     timestamp: datetime
-    migrasfree_cid: str
+    migasfree_cid: str
     usuario_grafico: str
     verificacion_equipos: dict[str, Any]
     resumen: dict[str, Any]

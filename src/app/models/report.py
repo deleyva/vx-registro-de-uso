@@ -20,8 +20,8 @@ class Report(Base):
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
-    migrasfree_cid: Mapped[str] = mapped_column(
-        "migrasfreeCid", String, nullable=False
+    migasfree_cid: Mapped[str] = mapped_column(
+        "migasfreeCid", String, nullable=False
     )
     usuario_grafico: Mapped[str] = mapped_column(
         "usuarioGrafico", String, nullable=False
@@ -39,5 +39,5 @@ class Report(Base):
 
     __table_args__ = (
         Index("reports_timestamp_idx", "timestamp"),
-        Index("reports_migrasfreeCid_idx", "migrasfreeCid"),
+        Index("reports_migasfreeCid_idx", "migasfreeCid"),
     )

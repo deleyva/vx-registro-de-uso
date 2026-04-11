@@ -11,8 +11,8 @@ VX Control Center — a single Python app (FastAPI + SQLAlchemy async + Jinja2/H
 **The MigrasFree agent is external and cannot be changed.** The `/v1/report*` contract must stay byte-for-byte compatible with the old NestJS API:
 
 - Routes: `POST /v1/report`, `GET /v1/report`, `GET /v1/report/{id}`
-- Request body: snake_case (`timestamp`, `migrasfree_cid`, `usuario_grafico`, `verificacion_equipos`, `resumen`, optional `empresa`, `tipo_verificacion`)
-- Response body: camelCase (`id`, `timestamp`, `migrasfreeCid`, `usuarioGrafico`, `verificacionEquipos`, `resumen`, `createdAt`)
+- Request body: snake_case (`timestamp`, `migasfree_cid`, `usuario_grafico`, `verificacion_equipos`, `resumen`, optional `empresa`, `tipo_verificacion`)
+- Response body: camelCase (`id`, `timestamp`, `migasfreeCid`, `usuarioGrafico`, `verificacionEquipos`, `resumen`, `createdAt`)
 - Status codes: `201` on create, `200` on list/get, `404` on missing id
 - **`empresa` and `tipo_verificacion` are intentionally accepted and then dropped.** Do NOT add columns to store them. This matches the old NestJS behavior exactly. If this ever needs to change, update the `Report` model, add a migration, and update the response schema in lockstep.
 - **Unknown fields in POST body are silently ignored** (`model_config = {"extra": "ignore"}` on `CreateReportRequest`). This is defensive against future MigrasFree changes.
@@ -25,10 +25,10 @@ VX Control Center — a single Python app (FastAPI + SQLAlchemy async + Jinja2/H
 The database uses **literal camelCase** column names (inherited from Prisma) while Python attributes use snake_case. Always pass the column name as the first positional argument of `mapped_column`:
 
 ```python
-migrasfree_cid: Mapped[str] = mapped_column("migrasfreeCid", String, nullable=False)
+migasfree_cid: Mapped[str] = mapped_column("migasfreeCid", String, nullable=False)
 ```
 
-Alembic autogenerate respects these overrides. After editing `models/report.py`, always hand-review the generated migration to confirm it uses `migrasfreeCid`, `usuarioGrafico`, `verificacionEquipos`, `createdAt` — not the snake_case forms.
+Alembic autogenerate respects these overrides. After editing `models/report.py`, always hand-review the generated migration to confirm it uses `migasfreeCid`, `usuarioGrafico`, `verificacionEquipos`, `createdAt` — not the snake_case forms.
 
 ### JSONB, not JSON
 

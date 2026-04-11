@@ -16,7 +16,7 @@ from httpx import AsyncClient
 EXPECTED_RESPONSE_KEYS = {
     "id",
     "timestamp",
-    "migrasfreeCid",
+    "migasfreeCid",
     "usuarioGrafico",
     "verificacionEquipos",
     "resumen",
@@ -45,7 +45,7 @@ async def test_post_valid_payload_returns_201_with_camel_keys(
     body = await _post(client, report_payload)
     assert _shape(body) == EXPECTED_RESPONSE_KEYS
     assert body["id"]
-    assert body["migrasfreeCid"] == "12345"
+    assert body["migasfreeCid"] == "12345"
     assert body["usuarioGrafico"] == "MOCK_USER_DELEYVA"
     assert "empresa" not in body
     assert "tipo_verificacion" not in body
@@ -90,7 +90,7 @@ async def test_get_no_filters_orders_by_created_at_desc(
     ids: list[str] = []
     for i in range(3):
         p = copy.deepcopy(report_payload)
-        p["migrasfree_cid"] = f"cid-{i}"
+        p["migasfree_cid"] = f"cid-{i}"
         body = await _post(client, p)
         ids.append(body["id"])
 
@@ -112,7 +112,7 @@ async def test_get_limit_5_returns_at_most_5(
     """Case 5: GET ?limit=5 → max 5 items."""
     for i in range(7):
         p = copy.deepcopy(report_payload)
-        p["migrasfree_cid"] = f"cid-{i}"
+        p["migasfree_cid"] = f"cid-{i}"
         await _post(client, p)
     res = await client.get("/v1/report", params={"limit": 5})
     assert res.status_code == 200
@@ -139,12 +139,12 @@ async def test_get_only_errors_filters_to_truthy_requiere_atencion(
 ) -> None:
     """Case 7: GET ?onlyErrors=true → only rows with resumen.requiere_atencion truthy."""
     a = copy.deepcopy(report_payload)
-    a["migrasfree_cid"] = "with-errors"
+    a["migasfree_cid"] = "with-errors"
     a["resumen"]["requiere_atencion"] = True
     await _post(client, a)
 
     b = copy.deepcopy(report_payload)
-    b["migrasfree_cid"] = "no-errors"
+    b["migasfree_cid"] = "no-errors"
     b["resumen"]["requiere_atencion"] = False
     await _post(client, b)
 
@@ -152,8 +152,8 @@ async def test_get_only_errors_filters_to_truthy_requiere_atencion(
     assert res.status_code == 200
     rows = res.json()
     assert all(r["resumen"].get("requiere_atencion") for r in rows)
-    assert any(r["migrasfreeCid"] == "with-errors" for r in rows)
-    assert not any(r["migrasfreeCid"] == "no-errors" for r in rows)
+    assert any(r["migasfreeCid"] == "with-errors" for r in rows)
+    assert not any(r["migasfreeCid"] == "no-errors" for r in rows)
 
 
 @pytest.mark.asyncio
@@ -162,7 +162,7 @@ async def test_get_component_raton_only_returns_defectuoso_rows(
 ) -> None:
     """Case 8: GET ?component=raton → rows where verificacionEquipos.raton.estado == 'defectuoso'."""
     bad = copy.deepcopy(report_payload)
-    bad["migrasfree_cid"] = "raton-bad"
+    bad["migasfree_cid"] = "raton-bad"
     bad["verificacion_equipos"]["raton"] = {
         "estado": "defectuoso",
         "problema": "no responde",
@@ -171,7 +171,7 @@ async def test_get_component_raton_only_returns_defectuoso_rows(
     await _post(client, bad)
 
     good = copy.deepcopy(report_payload)
-    good["migrasfree_cid"] = "raton-ok"
+    good["migasfree_cid"] = "raton-ok"
     good["verificacion_equipos"]["raton"] = {
         "estado": "correcto",
         "problema": None,
@@ -186,8 +186,8 @@ async def test_get_component_raton_only_returns_defectuoso_rows(
         r["verificacionEquipos"].get("raton", {}).get("estado") == "defectuoso"
         for r in rows
     )
-    assert any(r["migrasfreeCid"] == "raton-bad" for r in rows)
-    assert not any(r["migrasfreeCid"] == "raton-ok" for r in rows)
+    assert any(r["migasfreeCid"] == "raton-bad" for r in rows)
+    assert not any(r["migasfreeCid"] == "raton-ok" for r in rows)
 
 
 @pytest.mark.asyncio
@@ -196,12 +196,12 @@ async def test_get_only_operativo_false_returns_only_non_operativo(
 ) -> None:
     """Case 9: GET ?onlyOperativo=false → only rows with bool(equipo_operativo) is False."""
     op_true = copy.deepcopy(report_payload)
-    op_true["migrasfree_cid"] = "op-true"
+    op_true["migasfree_cid"] = "op-true"
     op_true["resumen"]["equipo_operativo"] = True
     await _post(client, op_true)
 
     op_false = copy.deepcopy(report_payload)
-    op_false["migrasfree_cid"] = "op-false"
+    op_false["migasfree_cid"] = "op-false"
     op_false["resumen"]["equipo_operativo"] = False
     await _post(client, op_false)
 
@@ -209,8 +209,8 @@ async def test_get_only_operativo_false_returns_only_non_operativo(
     assert res.status_code == 200
     rows = res.json()
     assert all(not bool(r["resumen"].get("equipo_operativo")) for r in rows)
-    assert any(r["migrasfreeCid"] == "op-false" for r in rows)
-    assert not any(r["migrasfreeCid"] == "op-true" for r in rows)
+    assert any(r["migasfreeCid"] == "op-false" for r in rows)
+    assert not any(r["migasfreeCid"] == "op-true" for r in rows)
 
 
 @pytest.mark.asyncio
@@ -219,12 +219,12 @@ async def test_get_from_to_filters_by_timestamp_range(
 ) -> None:
     """Case 10: GET ?from=...&to=... → date range filter against timestamp."""
     in_range = copy.deepcopy(report_payload)
-    in_range["migrasfree_cid"] = "in-range"
+    in_range["migasfree_cid"] = "in-range"
     in_range["timestamp"] = "2026-04-09T07:59:26.463Z"
     await _post(client, in_range)
 
     out_of_range = copy.deepcopy(report_payload)
-    out_of_range["migrasfree_cid"] = "out-of-range"
+    out_of_range["migasfree_cid"] = "out-of-range"
     out_of_range["timestamp"] = "2024-01-01T00:00:00.000Z"
     await _post(client, out_of_range)
 
@@ -237,7 +237,7 @@ async def test_get_from_to_filters_by_timestamp_range(
     )
     assert res.status_code == 200
     rows = res.json()
-    cids = {r["migrasfreeCid"] for r in rows}
+    cids = {r["migasfreeCid"] for r in rows}
     assert "in-range" in cids
     assert "out-of-range" not in cids
 

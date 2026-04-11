@@ -27,7 +27,7 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
               {{ r.timestamp | es_datetime }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ r.migrasfree_cid }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ r.migasfree_cid }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ r.usuario_grafico }}</td>
 
             {% for c in components %}
@@ -41,7 +41,7 @@
                     type="button"
                     title="{{ component_labels.get(c, c) }} · {{ item.get('estado') or '' }}{% if item.get('problema') %} · {{ item.get('problema') }}{% endif %}"
                     class="inline-flex items-center justify-center {% if ok %}text-green-600{% else %}text-red-600{% endif %}"
-                    onclick="document.getElementById('report-detail-modal').classList.remove('hidden'); document.getElementById('rdm-component').textContent='{{ component_labels.get(c, c) }}'; document.getElementById('rdm-cid').textContent='{{ r.migrasfree_cid }}'; document.getElementById('rdm-estado').textContent='{{ item.get('estado') or 'N/A' }}'; document.getElementById('rdm-obligatorio').textContent='{% if item.get('obligatorio') == True %}Sí{% elif item.get('obligatorio') == False %}No{% else %}N/A{% endif %}'; document.getElementById('rdm-problema').textContent='{{ item.get('problema') or '—' }}';"
+                    onclick="document.getElementById('report-detail-modal').classList.remove('hidden'); document.getElementById('rdm-component').textContent='{{ component_labels.get(c, c) }}'; document.getElementById('rdm-cid').textContent='{{ r.migasfree_cid }}'; document.getElementById('rdm-estado').textContent='{{ item.get('estado') or 'N/A' }}'; document.getElementById('rdm-obligatorio').textContent='{% if item.get('obligatorio') == True %}Sí{% elif item.get('obligatorio') == False %}No{% else %}N/A{% endif %}'; document.getElementById('rdm-problema').textContent='{{ item.get('problema') or '—' }}';"
                   >
                     {% if ok %}
                       <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>

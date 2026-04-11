@@ -84,7 +84,7 @@ async def create(db: AsyncSession, payload: dict[str, Any]) -> Report:
     """
     report = Report(
         timestamp=payload["timestamp"],
-        migrasfree_cid=payload["migrasfree_cid"],
+        migasfree_cid=payload["migasfree_cid"],
         usuario_grafico=payload["usuario_grafico"],
         verificacion_equipos=payload["verificacion_equipos"],
         resumen=payload["resumen"],

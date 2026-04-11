@@ -51,7 +51,7 @@ Two host ports are mapped to the same container port `3001`:
 ```json
 {
   "timestamp": "2026-04-09T07:59:26.463Z",
-  "migrasfree_cid": "12345",
+  "migasfree_cid": "12345",
   "usuario_grafico": "MOCK_USER",
   "empresa": "VITALINUX",                      // accepted silently, not stored
   "tipo_verificacion": "equipos_escritorio",   // accepted silently, not stored
@@ -74,7 +74,7 @@ Response shape (camelCase):
 {
   "id": "kpv1jqy6b2...",
   "timestamp": "2026-04-09T07:59:26.463000Z",
-  "migrasfreeCid": "12345",
+  "migasfreeCid": "12345",
   "usuarioGrafico": "MOCK_USER",
   "verificacionEquipos": { ... },
   "resumen": { ... },

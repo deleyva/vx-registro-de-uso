@@ -11,14 +11,14 @@ from app.schemas.reports import CreateReportRequest, ReportResponse
 def test_to_camel() -> None:
     assert to_camel("foo") == "foo"
     assert to_camel("foo_bar") == "fooBar"
-    assert to_camel("migrasfree_cid") == "migrasfreeCid"
+    assert to_camel("migasfree_cid") == "migasfreeCid"
     assert to_camel("verificacion_equipos") == "verificacionEquipos"
 
 
 def test_create_request_accepts_extra_fields_and_ignores_them() -> None:
     payload = {
         "timestamp": "2026-04-09T07:59:26.463Z",
-        "migrasfree_cid": "12345",
+        "migasfree_cid": "12345",
         "usuario_grafico": "MOCK",
         "empresa": "VITALINUX",
         "tipo_verificacion": "equipos_escritorio",
@@ -37,7 +37,7 @@ def test_response_serialization_uses_camel_keys() -> None:
     resp = ReportResponse(
         id="abc",
         timestamp=datetime(2026, 4, 9, 7, 59, 26, tzinfo=UTC),
-        migrasfree_cid="12345",
+        migasfree_cid="12345",
         usuario_grafico="MOCK",
         verificacion_equipos={"pantalla": {"estado": "correcto"}},
         resumen={"equipo_operativo": True},
@@ -47,7 +47,7 @@ def test_response_serialization_uses_camel_keys() -> None:
     assert set(dumped.keys()) == {
         "id",
         "timestamp",
-        "migrasfreeCid",
+        "migasfreeCid",
         "usuarioGrafico",
         "verificacionEquipos",
         "resumen",
