@@ -29,9 +29,13 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
 def _format_es_datetime(dt: datetime) -> str:
-    """Spanish-style date format used in the React table."""
+    """Spanish-style date format, converted to Europe/Madrid."""
     if dt is None:
         return "—"
+    from zoneinfo import ZoneInfo
+    madrid = ZoneInfo("Europe/Madrid")
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(madrid)
     return dt.strftime("%d/%m/%Y, %H:%M:%S")
 
 
