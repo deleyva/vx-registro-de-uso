@@ -10,13 +10,12 @@
             {{ component_labels.get(c, c) }}
           </th>
         {% endfor %}
-        <th class="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Operativo</th>
       </tr>
     </thead>
     <tbody class="divide-y divide-gray-200">
       {% if reports|length == 0 %}
         <tr>
-          <td colspan="{{ 4 + components|length }}" class="px-3 py-12 text-center text-gray-500">
+          <td colspan="{{ 3 + components|length }}" class="px-3 py-12 text-center text-gray-500">
             No hay reportes aún
           </td>
         </tr>
@@ -35,7 +34,7 @@
                 {% if item is none %}
                   <span class="text-xs text-gray-400">—</span>
                 {% else %}
-                  {% set ok = item.get('estado') == 'correcto' %}
+                  {% set ok = item.get('estado') in ('correcto', 'no_verificado') %}
                   <button
                     type="button"
                     title="{{ component_labels.get(c, c) }} · {{ item.get('estado') or '' }}{% if item.get('problema') %} · {{ item.get('problema') }}{% endif %}"
@@ -52,13 +51,6 @@
               </td>
             {% endfor %}
 
-            <td class="px-2 py-3 whitespace-nowrap text-center">
-              {% if r.resumen.get('equipo_operativo') %}
-                <span class="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Sí</span>
-              {% else %}
-                <span class="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">No</span>
-              {% endif %}
-            </td>
           </tr>
         {% endfor %}
       {% endif %}

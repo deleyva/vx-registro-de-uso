@@ -34,8 +34,10 @@ def _format_es_datetime(dt: datetime) -> str:
         return "—"
     from zoneinfo import ZoneInfo
     madrid = ZoneInfo("Europe/Madrid")
-    if dt.tzinfo is not None:
-        dt = dt.astimezone(madrid)
+    utc = ZoneInfo("UTC")
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=utc)
+    dt = dt.astimezone(madrid)
     return dt.strftime("%d/%m/%Y, %H:%M:%S")
 
 
