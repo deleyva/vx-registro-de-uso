@@ -1,0 +1,48 @@
+# Production stack for vx-registro-de-uso.
+# Installed to /opt/vx-registro/docker-compose.yml by the .deb package and
+# launched on host boot by the vx-registro.service systemd unit.
+# Unlike the dev docker-compose.yml at the repo root, the app image is pulled
+# from GHCR instead of built locally.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: vx-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-vx_control}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - vx-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    image: ${VX_IMAGE:-ghcr.io/deleyva/vx-registro-de-uso:latest}
+    container_name: vx-app
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-vx_control}
+      APP_PORT: ${APP_PORT:-3001}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001}
+    ports:
+      - "${APP_PORT:-3001}:3001"
+      - "3000:3001"
+    networks:
+      - vx-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+networks:
+  vx-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

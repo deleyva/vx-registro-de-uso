@@ -1,0 +1,139 @@
+name: "Build and Release"
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+env:
+  NFPM_VERSION: "2.41.1"
+
+jobs:
+  meta:
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      image_name: ${{ steps.meta.outputs.image_name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute version and image name
+        id: meta
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="$(grep -m1 '^version' pyproject.toml | sed -E 's/.*"([^"]+)".*/\1/')"
+          fi
+          # GHCR requires lowercase image names
+          IMAGE_NAME="ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "image_name=$IMAGE_NAME" >> "$GITHUB_OUTPUT"
+          echo "📦 Version: $VERSION — Image: $IMAGE_NAME"
+
+  # Build + push the Docker image — runs in parallel with the .deb job.
+  docker:
+    needs: meta
+    runs-on: ubuntu-22.04
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ needs.meta.outputs.image_name }}:${{ needs.meta.outputs.version }}
+            ${{ needs.meta.outputs.image_name }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Build the .deb — independent of the image, runs in parallel with the docker job.
+  deb:
+    needs: meta
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install nfpm
+        run: |
+          curl -sSfL "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_amd64.deb" -o /tmp/nfpm.deb
+          sudo dpkg -i /tmp/nfpm.deb
+
+      - name: Build .deb package
+        env:
+          PACKAGE_VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          mkdir -p dist
+          nfpm package \
+            --config deploy/nfpm.yaml \
+            --packager deb \
+            --target "dist/vx-registro-de-uso_${PACKAGE_VERSION}_amd64.deb"
+          ls -la dist/
+
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb
+          path: dist/*.deb
+
+  # Publish the GitHub Release once both build jobs succeed (tag pushes only).
+  release:
+    needs: [meta, docker, deb]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download .deb artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: deb
+          path: dist
+
+      - name: Create Release and upload .deb
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "VX Control Center v${{ needs.meta.outputs.version }}"
+          body: |
+            🖥️ VX Control Center v${{ needs.meta.outputs.version }}
+
+            Sistema de registro y monitoreo de equipos del IES Martina Bescós.
+
+            ## 📦 Imagen Docker
+
+            ```
+            ${{ needs.meta.outputs.image_name }}:${{ needs.meta.outputs.version }}
+            ${{ needs.meta.outputs.image_name }}:latest
+            ```
+
+            ## 🐧 Instalación en el servidor (.deb)
+
+            El paquete instala el stack como servicio systemd que arranca solo al iniciar el host.
+
+            ```bash
+            sudo dpkg -i vx-registro-de-uso_${{ needs.meta.outputs.version }}_amd64.deb
+            # editar credenciales si hace falta:
+            sudo nano /opt/vx-registro/.env
+            sudo systemctl restart vx-registro
+            ```
+
+            Requiere Docker y el plugin `docker compose` v2 en el host.
+          draft: false
+          files: dist/*.deb

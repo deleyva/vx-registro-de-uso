@@ -1,0 +1,39 @@
+# nfpm config — builds the vx-registro-de-uso .deb.
+# Version is injected by CI via the PACKAGE_VERSION env var.
+name: vx-registro-de-uso
+arch: amd64
+platform: linux
+version: ${PACKAGE_VERSION}
+section: misc
+priority: optional
+maintainer: deleyva
+description: |
+  VX Control Center — sistema de registro y monitoreo de equipos del IES Martina Bescós.
+  Instala el stack como servicio systemd que arranca al iniciar el host.
+homepage: https://github.com/deleyva/vx-registro-de-uso
+license: MIT
+
+# No `depends:` on purpose. Hosts may install Docker from Docker's own repo
+# (docker-ce + docker-compose-plugin) rather than the distro's docker.io, and
+# docker.io does not pull in the compose v2 plugin anyway. postinst.sh checks
+# for Docker + compose v2 at install time and warns instead of failing.
+
+contents:
+  - src: deploy/docker-compose.prod.yml
+    dst: /opt/vx-registro/docker-compose.yml
+
+  - src: deploy/vx-registro.env.example
+    dst: /opt/vx-registro/.env.example
+
+  # Installed as a config file so an existing edited .env is preserved on upgrade.
+  - src: deploy/vx-registro.env.example
+    dst: /opt/vx-registro/.env
+    type: "config|noreplace"
+
+  - src: deploy/vx-registro.service
+    dst: /etc/systemd/system/vx-registro.service
+
+scripts:
+  postinstall: deploy/scripts/postinst.sh
+  preremove: deploy/scripts/prerm.sh
+  postremove: deploy/scripts/postrm.sh

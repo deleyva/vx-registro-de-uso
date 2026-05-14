@@ -1,0 +1,21 @@
+[Unit]
+Description=VX Control Center (vx-registro-de-uso) Docker stack
+Documentation=https://github.com/deleyva/vx-registro-de-uso
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/vx-registro
+EnvironmentFile=/opt/vx-registro/.env
+# Non-fatal pull: a slow/offline network or a private image must not block boot —
+# fall through to the cached image. Run `systemctl restart vx-registro` to force an update.
+ExecStartPre=-/usr/bin/docker compose -f /opt/vx-registro/docker-compose.yml pull
+ExecStart=/usr/bin/docker compose -f /opt/vx-registro/docker-compose.yml up -d
+ExecStop=/usr/bin/docker compose -f /opt/vx-registro/docker-compose.yml down
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

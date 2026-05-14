@@ -141,6 +141,56 @@ docker compose down -v
 
 On startup the container runs `alembic upgrade head` before launching Uvicorn.
 
+## Despliegue en servidor (.deb + systemd)
+
+El paquete `.deb` instala el stack como un servicio systemd que **arranca solo al iniciar
+el host**. Es el equivalente de servidor al autoarranque de `vx-login-app`: en lugar de un
+`.desktop` en `/etc/xdg/autostart/`, aquí se instala un unit en `/etc/systemd/system/`.
+
+Qué coloca el `.deb` al instalarse:
+
+| Archivo | Destino |
+|---|---|
+| `deploy/docker-compose.prod.yml` | `/opt/vx-registro/docker-compose.yml` |
+| `deploy/vx-registro.env.example` | `/opt/vx-registro/.env` (config, no se sobrescribe en upgrades) |
+| `deploy/vx-registro.service` | `/etc/systemd/system/vx-registro.service` |
+
+El `postinst` ejecuta `systemctl daemon-reload`, `systemctl enable vx-registro` y arranca
+el servicio (si Docker está disponible). El stack de producción usa la imagen de GHCR
+(`ghcr.io/deleyva/vx-registro-de-uso`), no construye en local.
+
+**Requisitos del host:** Docker + el plugin `docker compose` v2.
+
+```bash
+# instalar
+sudo dpkg -i vx-registro-de-uso_<version>_amd64.deb
+
+# ajustar credenciales (Postgres, CORS, puerto…)
+sudo nano /opt/vx-registro/.env
+sudo systemctl restart vx-registro
+
+# operación
+sudo systemctl status vx-registro
+docker compose -f /opt/vx-registro/docker-compose.yml logs -f
+```
+
+Al desinstalar (`sudo dpkg -r vx-registro-de-uso`) se para y deshabilita el servicio; el
+`.env` y el volumen de datos de Postgres se conservan a propósito.
+
+## Release
+
+Las releases las genera GitHub Actions (`.github/workflows/release.yml`) al hacer push de
+un tag `v*`. El workflow construye y publica la imagen Docker en GHCR (`:version` y
+`:latest`), construye el `.deb` con [nfpm](https://nfpm.goreleaser.com/) y crea una GitHub
+Release con el `.deb` adjunto.
+
+```bash
+just release 2.1.0   # bump pyproject.toml + commit + tag + push → dispara el workflow
+just version         # ver versión actual
+```
+
+La versión vive en un único sitio: el campo `version` de `pyproject.toml`.
+
 ## Project layout
 
 ```
