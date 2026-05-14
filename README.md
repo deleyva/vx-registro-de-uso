@@ -91,7 +91,7 @@ See `.env.example`.
 | `DATABASE_URL` | `postgresql+asyncpg://postgres:postgres@localhost:5433/vx_control` | Async driver for the app; `+asyncpg` is inserted automatically if missing. |
 | `APP_PORT` | `3001` | Uvicorn bind port inside the container. |
 | `ENVIRONMENT` | `development` | Free-form tag (`development`/`production`). |
-| `CORS_ORIGINS` | `http://localhost:3000,http://localhost:3001,http://100.99.123.84:3000` | Comma-separated list of allowed origins. |
+| `CORS_ORIGINS` | `http://localhost:3000,http://localhost:3001` | Comma-separated list of allowed origins. |
 
 ## Local development
 
@@ -123,7 +123,10 @@ uv run alembic upgrade head
 uv run tailwindcss -i src/app/static/css/tailwind.src.css -o src/app/static/css/tailwind.css --minify
 ```
 
-## Docker (production)
+## Docker (compose local)
+
+Para levantar el stack en local **construyendo la imagen desde el código** (no desde GHCR),
+con el `docker-compose.yml` de la raíz:
 
 ```bash
 # build + start
@@ -141,55 +144,104 @@ docker compose down -v
 
 On startup the container runs `alembic upgrade head` before launching Uvicorn.
 
-## Despliegue en servidor (.deb + systemd)
+Hay **dos** ficheros compose, no los confundas:
+- `docker-compose.yml` (raíz) — desarrollo/local, **construye** la imagen desde el `Dockerfile`.
+- `deploy/docker-compose.prod.yml` — producción, **descarga** la imagen ya construida de GHCR.
+  Es el que el `.deb` instala en el servidor (ver abajo).
 
-El paquete `.deb` instala el stack como un servicio systemd que **arranca solo al iniciar
-el host**. Es el equivalente de servidor al autoarranque de `vx-login-app`: en lugar de un
-`.desktop` en `/etc/xdg/autostart/`, aquí se instala un unit en `/etc/systemd/system/`.
+## Despliegue en producción (.deb + systemd)
 
-Qué coloca el `.deb` al instalarse:
+### Cómo encaja todo
 
-| Archivo | Destino |
-|---|---|
-| `deploy/docker-compose.prod.yml` | `/opt/vx-registro/docker-compose.yml` |
-| `deploy/vx-registro.env.example` | `/opt/vx-registro/.env` (config, no se sobrescribe en upgrades) |
-| `deploy/vx-registro.service` | `/etc/systemd/system/vx-registro.service` |
+```
+  Desarrollo                 GitHub Actions                Servidor (host Docker)
+ ─────────────              ────────────────              ────────────────────────
+ just release X.Y.Z  ──┐
+ (bump + tag + push)    │   tag v* dispara el workflow:
+                        └──> 1. build + push imagen → GHCR (:X.Y.Z y :latest)
+                             2. build .deb con nfpm  ─┐  (en paralelo)
+                             3. GitHub Release con el .deb adjunto
+                                                      │
+                          el .deb se descarga de la ──┘
+                          Release y se instala:            sudo dpkg -i ...«.deb»
+                                                            └─> systemd levanta el stack
+                                                                que hace docker pull de GHCR
+```
 
-El `postinst` ejecuta `systemctl daemon-reload`, `systemctl enable vx-registro` y arranca
-el servicio (si Docker está disponible). El stack de producción usa la imagen de GHCR
-(`ghcr.io/deleyva/vx-registro-de-uso`), no construye en local.
+El `.deb` **no contiene la aplicación** — contiene el `docker-compose` de producción, el
+`.env` y el unit de systemd. La aplicación viaja como imagen Docker en GHCR. Es el
+equivalente de servidor al autoarranque de `vx-login-app`: en lugar de un `.desktop` en
+`/etc/xdg/autostart/`, se instala un unit en `/etc/systemd/system/` que arranca el stack
+al iniciar el host.
 
-**Requisitos del host:** Docker + el plugin `docker compose` v2.
+### Primera vez: hacer pública la imagen de GHCR
+
+Tras el **primer** release, el paquete de contenedor existe pero es **privado** por defecto,
+y el servidor no podrá hacer `docker pull` en el arranque. Una sola vez:
+
+1. Ve a `https://github.com/users/deleyva/packages/container/vx-registro-de-uso/settings`
+2. *Danger Zone* → *Change visibility* → **Public**
+
+(Alternativa si se prefiere mantenerla privada: hacer `docker login ghcr.io` en el host con
+un PAT con scope `read:packages`.)
+
+### Requisitos del host
+
+Docker + el plugin `docker compose` v2. El `.deb` **no** los declara como dependencia
+(los hosts suelen usar Docker CE del repo de Docker); el `postinst` comprueba que están y
+avisa si faltan, pero no falla la instalación.
+
+### Instalar / actualizar en el servidor
 
 ```bash
-# instalar
+# descargar el .deb desde la GitHub Release y:
 sudo dpkg -i vx-registro-de-uso_<version>_amd64.deb
 
-# ajustar credenciales (Postgres, CORS, puerto…)
+# primera instalación: ajustar credenciales (Postgres, CORS, puerto, VX_IMAGE…)
 sudo nano /opt/vx-registro/.env
 sudo systemctl restart vx-registro
+```
 
-# operación
+En **upgrades** el `.env` ya editado **se conserva** (está marcado como fichero de
+configuración). Para actualizar a una versión nueva basta con `dpkg -i` del nuevo `.deb`, o
+`sudo systemctl restart vx-registro` si solo cambió la imagen `:latest`.
+
+### Qué coloca el `.deb`
+
+| Archivo del repo | Destino en el host |
+|---|---|
+| `deploy/docker-compose.prod.yml` | `/opt/vx-registro/docker-compose.yml` |
+| `deploy/vx-registro.env.example` | `/opt/vx-registro/.env.example` y `/opt/vx-registro/.env` (este último no se sobrescribe en upgrades) |
+| `deploy/vx-registro.service` | `/etc/systemd/system/vx-registro.service` |
+
+El `postinst` ejecuta `systemctl daemon-reload`, `systemctl enable vx-registro` y arranca el
+servicio si Docker está disponible.
+
+### Operación
+
+```bash
 sudo systemctl status vx-registro
 docker compose -f /opt/vx-registro/docker-compose.yml logs -f
+sudo systemctl restart vx-registro     # re-pull de la imagen + reinicio
 ```
 
 Al desinstalar (`sudo dpkg -r vx-registro-de-uso`) se para y deshabilita el servicio; el
 `.env` y el volumen de datos de Postgres se conservan a propósito.
 
-## Release
+## Publicar una nueva versión (release)
 
-Las releases las genera GitHub Actions (`.github/workflows/release.yml`) al hacer push de
-un tag `v*`. El workflow construye y publica la imagen Docker en GHCR (`:version` y
-`:latest`), construye el `.deb` con [nfpm](https://nfpm.goreleaser.com/) y crea una GitHub
-Release con el `.deb` adjunto.
+Las releases las genera GitHub Actions (`.github/workflows/release.yml`) al hacer push de un
+tag `v*`. El workflow construye y publica la imagen Docker en GHCR (`:version` y `:latest`),
+construye el `.deb` con [nfpm](https://nfpm.goreleaser.com/) y crea una GitHub Release con el
+`.deb` adjunto.
 
 ```bash
-just release 2.1.0   # bump pyproject.toml + commit + tag + push → dispara el workflow
 just version         # ver versión actual
+just release 2.1.0   # bump pyproject.toml + commit + tag + push → dispara el workflow
 ```
 
-La versión vive en un único sitio: el campo `version` de `pyproject.toml`.
+La versión vive en un único sitio: el campo `version` de `pyproject.toml`. El tag (`v2.1.0`)
+es lo que el workflow usa para etiquetar la imagen y nombrar la Release.
 
 ## Project layout
 

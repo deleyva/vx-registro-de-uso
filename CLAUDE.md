@@ -129,6 +129,27 @@ uv run alembic revision --autogenerate -m "add foo column"
 uv run alembic upgrade head
 ```
 
+## Deployment & releases
+
+Production runs as a Docker stack on a server host, started on boot by a **systemd** unit —
+NOT on each workstation. See the README "Despliegue en producción" section for the full flow.
+
+- **Two compose files**: `docker-compose.yml` (root, dev — `build:` from source) vs
+  `deploy/docker-compose.prod.yml` (prod — `image:` from GHCR). Keep the `postgres` service
+  in sync between them by hand.
+- **Release = git tag `v*`**. `just release X.Y.Z` bumps `pyproject.toml` (the single version
+  source), commits, tags, and pushes. The tag triggers `.github/workflows/release.yml`:
+  parallel jobs build+push the GHCR image and build the `.deb` via `deploy/nfpm.yaml`, then a
+  `release` job publishes a GitHub Release with the `.deb`.
+- **The `.deb` ships infra, not the app** — compose file + `.env` + systemd unit, landing in
+  `/opt/vx-registro/` and `/etc/systemd/system/`. The app itself is the GHCR image the unit
+  pulls. Maintainer scripts are in `deploy/scripts/`.
+- **First release only**: the GHCR package is private by default — make it public in the
+  package settings, or the host can't `docker pull` on boot.
+- When changing the install layout, the path `/opt/vx-registro/` is hardcoded across
+  `deploy/nfpm.yaml`, `deploy/vx-registro.service`, `deploy/scripts/*`, and the README — it's
+  a packaging contract, change all of them together.
+
 ## Latent work not yet ported
 
 The old NestJS monorepo had these modules in source that were **not mounted in `app.module.ts`** and therefore not exposed in production. They are **intentionally not ported** to this Python rewrite:
