@@ -174,16 +174,17 @@ equivalente de servidor al autoarranque de `vx-login-app`: en lugar de un `.desk
 `/etc/xdg/autostart/`, se instala un unit en `/etc/systemd/system/` que arranca el stack
 al iniciar el host.
 
-### Primera vez: hacer pública la imagen de GHCR
+### Visibilidad de la imagen de GHCR
 
-Tras el **primer** release, el paquete de contenedor existe pero es **privado** por defecto,
-y el servidor no podrá hacer `docker pull` en el arranque. Una sola vez:
+Como el repositorio es **público**, el paquete de contenedor que publica GitHub Actions
+hereda esa visibilidad y es **público** automáticamente — el servidor puede hacer
+`docker pull` sin autenticarse. No hay paso manual.
 
-1. Ve a `https://github.com/users/deleyva/packages/container/vx-registro-de-uso/settings`
-2. *Danger Zone* → *Change visibility* → **Public**
-
-(Alternativa si se prefiere mantenerla privada: hacer `docker login ghcr.io` en el host con
-un PAT con scope `read:packages`.)
+Si el repositorio pasara a privado, el paquete quedaría privado y habría que: o bien hacerlo
+público en
+`https://github.com/users/deleyva/packages/container/vx-registro-de-uso/settings`
+(*Danger Zone* → *Change visibility*), o bien hacer `docker login ghcr.io` en el host con un
+PAT con scope `read:packages`.
 
 ### Requisitos del host
 

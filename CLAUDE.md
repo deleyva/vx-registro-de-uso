@@ -144,8 +144,9 @@ NOT on each workstation. See the README "Despliegue en producción" section for 
 - **The `.deb` ships infra, not the app** — compose file + `.env` + systemd unit, landing in
   `/opt/vx-registro/` and `/etc/systemd/system/`. The app itself is the GHCR image the unit
   pulls. Maintainer scripts are in `deploy/scripts/`.
-- **First release only**: the GHCR package is private by default — make it public in the
-  package settings, or the host can't `docker pull` on boot.
+- **GHCR image visibility**: the repo is public, so the Actions-published container package
+  inherits public visibility automatically — no manual step. If the repo ever goes private,
+  the package must be made public (or the host needs `docker login ghcr.io`).
 - When changing the install layout, the path `/opt/vx-registro/` is hardcoded across
   `deploy/nfpm.yaml`, `deploy/vx-registro.service`, `deploy/scripts/*`, and the README — it's
   a packaging contract, change all of them together.
