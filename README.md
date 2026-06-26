@@ -2,59 +2,63 @@
 
 Sistema de registro y monitoreo de equipos del IES Martina Bescós. Recibe reportes de verificación de un agente externo (MigrasFree) y los muestra en un panel web.
 
+![alt text](image.png)
+
+Clicando en cada icono de error, se ve qué es lo que falla.
+
 ## Stack
 
 - **Runtime**: Python 3.12
 - **Framework**: FastAPI + Uvicorn
 - **ORM**: SQLAlchemy 2.0 (async, Mapped API)
-- **DB**: PostgreSQL 16
-- **Migrations**: Alembic
-- **Templates**: Jinja2 + HTMX 2.0 + Tailwind v4
-- **Package manager**: uv
+- **BD**: PostgreSQL 16
+- **Migraciones**: Alembic
+- **Plantillas**: Jinja2 + HTMX 2.0 + Tailwind v4
+- **Gestor de paquetes**: uv
 - **Tests**: pytest + httpx
 
-Single-container app (FastAPI serves both the `/v1/report*` API and the web panel). Designed to be deployed on the existing Docker host replacing the old Turborepo (NestJS + Next.js) monorepo.
+Aplicación de un solo contenedor (FastAPI sirve tanto la API `/v1/report*` como el panel web). Diseñada para desplegarse en el host Docker existente, sustituyendo al antiguo monorepo Turborepo (NestJS + Next.js).
 
-## Architecture
+## Arquitectura
 
 ```
 ┌──────────────┐     POST /v1/report      ┌────────────┐
 │  MigrasFree  │ ────────────────────────>│            │
-│   (agent)    │                          │            │
+│   (agente)   │                          │            │
 └──────────────┘                          │  FastAPI   │    ┌──────────┐
                                           │   :3001    │ ──>│ Postgres │
 ┌──────────────┐     GET /                │            │    │  :5433   │
-│   Browser    │ ────────────────────────>│            │    └──────────┘
+│  Navegador   │ ────────────────────────>│            │    └──────────┘
 │  (panel web) │     HTMX                 │            │
 └──────────────┘                          └────────────┘
 ```
 
-Two host ports are mapped to the same container port `3001`:
-- `3001:3001` — canonical API port, used by MigrasFree and Swagger (`/api/docs`).
-- `3000:3001` — alias kept so old bookmarks to `http://host:3000/` still work.
+Se mapean dos puertos del host al mismo puerto `3001` del contenedor:
+- `3001:3001` — puerto canónico de la API, usado por MigrasFree y Swagger (`/api/docs`).
+- `3000:3001` — alias mantenido para que los marcadores antiguos a `http://host:3000/` sigan funcionando.
 
 ## Endpoints
 
-| Method | Path | Description |
+| Método | Ruta | Descripción |
 |---|---|---|
-| POST | `/v1/report` | Receive verification report (snake_case payload, returns camelCase) |
-| GET | `/v1/report` | List reports (filters: `limit`, `from`, `to`, `onlyErrors`, `component`, `onlyOperativo`) |
-| GET | `/v1/report/{id}` | Single report by id |
-| GET | `/` | Web panel (HTMX) |
-| GET | `/reports/{id}/component/{component}` | Modal fragment for component detail |
-| GET | `/health` | Liveness check (runs `SELECT 1`) |
+| POST | `/v1/report` | Recibir reporte de verificación (payload en snake_case, respuesta en camelCase) |
+| GET | `/v1/report` | Listar reportes (filtros: `limit`, `from`, `to`, `onlyErrors`, `component`, `onlyOperativo`) |
+| GET | `/v1/report/{id}` | Reporte individual por id |
+| GET | `/` | Panel web (HTMX) |
+| GET | `/reports/{id}/component/{component}` | Fragmento modal para detalle de componente |
+| GET | `/health` | Comprobación de vida (ejecuta `SELECT 1`) |
 | GET | `/api/docs` | Swagger UI |
-| GET | `/api/openapi.json` | OpenAPI schema |
+| GET | `/api/openapi.json` | Esquema OpenAPI |
 
-### POST `/v1/report` payload
+### Payload de POST `/v1/report`
 
 ```json
 {
   "timestamp": "2026-04-09T07:59:26.463Z",
   "migasfree_cid": "12345",
   "usuario_grafico": "MOCK_USER",
-  "empresa": "VITALINUX",                      // accepted silently, not stored
-  "tipo_verificacion": "equipos_escritorio",   // accepted silently, not stored
+  "empresa": "VITALINUX",                      // se acepta pero no se almacena
+  "tipo_verificacion": "equipos_escritorio",   // se acepta pero no se almacena
   "verificacion_equipos": {
     "pantalla": { "estado": "correcto", "problema": null, "obligatorio": true },
     "raton":    { "estado": "defectuoso", "problema": "no responde", "obligatorio": true }
@@ -67,9 +71,9 @@ Two host ports are mapped to the same container port `3001`:
 }
 ```
 
-Unknown fields are accepted silently (Pydantic `extra="ignore"`).
+Los campos desconocidos se aceptan silenciosamente (Pydantic `extra="ignore"`).
 
-Response shape (camelCase):
+Formato de respuesta (camelCase):
 ```json
 {
   "id": "kpv1jqy6b2...",
@@ -82,44 +86,44 @@ Response shape (camelCase):
 }
 ```
 
-## Environment variables
+## Variables de entorno
 
-See `.env.example`.
+Ver `.env.example`.
 
-| Var | Default | Description |
+| Variable | Valor por defecto | Descripción |
 |---|---|---|
-| `DATABASE_URL` | `postgresql+asyncpg://postgres:postgres@localhost:5433/vx_control` | Async driver for the app; `+asyncpg` is inserted automatically if missing. |
-| `APP_PORT` | `3001` | Uvicorn bind port inside the container. |
-| `ENVIRONMENT` | `development` | Free-form tag (`development`/`production`). |
-| `CORS_ORIGINS` | `http://localhost:3000,http://localhost:3001` | Comma-separated list of allowed origins. |
+| `DATABASE_URL` | `postgresql+asyncpg://postgres:postgres@localhost:5433/vx_control` | Driver asíncrono para la app; `+asyncpg` se inserta automáticamente si falta. |
+| `APP_PORT` | `3001` | Puerto de escucha de Uvicorn dentro del contenedor. |
+| `ENVIRONMENT` | `development` | Etiqueta libre (`development`/`production`). |
+| `CORS_ORIGINS` | `http://localhost:3000,http://localhost:3001` | Lista de orígenes permitidos separados por comas. |
 
-## Local development
+## Desarrollo local
 
-Prereqs: `uv` (>= 0.5), Docker.
+Requisitos previos: `uv` (>= 0.5), Docker.
 
 ```bash
-# 1. install deps
+# 1. instalar dependencias
 uv sync
 
-# 2. start a Postgres
+# 2. levantar un Postgres
 docker run -d --name vx-postgres-dev \
   -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=vx_control \
   -p 5433:5432 postgres:16-alpine
 
-# 3. apply migrations
+# 3. aplicar migraciones
 uv run alembic upgrade head
 
-# 4. run server
+# 4. arrancar servidor
 uv run uvicorn app.main:app --reload --port 3001
 
-# 5. run tests
+# 5. ejecutar tests
 uv run pytest -v
 
-# 6. new migration (after editing models/)
+# 6. nueva migración (tras editar models/)
 uv run alembic revision --autogenerate -m "describe change"
 uv run alembic upgrade head
 
-# 7. rebuild Tailwind (after editing templates/)
+# 7. recompilar Tailwind (tras editar templates/)
 uv run tailwindcss -i src/app/static/css/tailwind.src.css -o src/app/static/css/tailwind.css --minify
 ```
 
@@ -129,20 +133,20 @@ Para levantar el stack en local **construyendo la imagen desde el código** (no 
 con el `docker-compose.yml` de la raíz:
 
 ```bash
-# build + start
+# build + arrancar
 docker compose up --build -d
 
 # logs
 docker compose logs -f app
 
-# stop
+# parar
 docker compose down
 
-# stop + wipe DB volume
+# parar + borrar volumen de BD
 docker compose down -v
 ```
 
-On startup the container runs `alembic upgrade head` before launching Uvicorn.
+Al arrancar, el contenedor ejecuta `alembic upgrade head` antes de lanzar Uvicorn.
 
 Hay **dos** ficheros compose, no los confundas:
 - `docker-compose.yml` (raíz) — desarrollo/local, **construye** la imagen desde el `Dockerfile`.
@@ -157,7 +161,7 @@ Hay **dos** ficheros compose, no los confundas:
   Desarrollo                 GitHub Actions                Servidor (host Docker)
  ─────────────              ────────────────              ────────────────────────
  just release X.Y.Z  ──┐
- (bump + tag + push)    │   tag v* dispara el workflow:
+ (bump + tag + push)    │   el tag v* dispara el workflow:
                         └──> 1. build + push imagen → GHCR (:X.Y.Z y :latest)
                              2. build .deb con nfpm  ─┐  (en paralelo)
                              3. GitHub Release con el .deb adjunto
@@ -244,30 +248,30 @@ just release 2.1.0   # bump pyproject.toml + commit + tag + push → dispara el 
 La versión vive en un único sitio: el campo `version` de `pyproject.toml`. El tag (`v2.1.0`)
 es lo que el workflow usa para etiquetar la imagen y nombrar la Release.
 
-## Project layout
+## Estructura del proyecto
 
 ```
 .
 ├── src/app/
-│   ├── main.py              # FastAPI app, routers, CORS, static files
+│   ├── main.py              # App FastAPI, routers, CORS, archivos estáticos
 │   ├── core/
 │   │   ├── config.py        # pydantic-settings
-│   │   ├── ids.py           # cuid2 generator
+│   │   ├── ids.py           # generador cuid2
 │   │   └── logging.py
 │   ├── db/
 │   │   ├── base.py          # DeclarativeBase
-│   │   └── session.py       # async_engine, get_db dependency
+│   │   └── session.py       # async_engine, dependencia get_db
 │   ├── models/
-│   │   └── report.py        # Report ORM model (camelCase column names)
+│   │   └── report.py        # Modelo ORM Report (nombres de columna en camelCase)
 │   ├── schemas/
-│   │   ├── camel.py         # CamelModel base (alias_generator)
+│   │   ├── camel.py         # Base CamelModel (alias_generator)
 │   │   └── reports.py       # CreateReportRequest + ReportResponse
 │   ├── services/
-│   │   └── reports.py       # create, find_all (in-memory filters), find_one
+│   │   └── reports.py       # create, find_all (filtros en memoria), find_one
 │   ├── routers/
 │   │   ├── health.py        # GET /health
 │   │   ├── reports_v1.py    # POST/GET /v1/report, GET /v1/report/{id}
-│   │   └── web.py           # GET / (HTMX panel), GET /reports/{id}/component/{c}
+│   │   └── web.py           # GET / (panel HTMX), GET /reports/{id}/component/{c}
 │   ├── templates/           # Jinja2
 │   │   ├── base.html
 │   │   ├── index.html
@@ -277,16 +281,16 @@ es lo que el workflow usa para etiquetar la imagen y nombrar la Release.
 │   └── static/
 │       ├── css/
 │       │   ├── tailwind.src.css
-│       │   └── tailwind.css     # compiled, committed
+│       │   └── tailwind.css     # compilado, commiteado
 │       └── vendor/
 │           └── htmx.min.js
 ├── migrations/               # Alembic
 │   └── versions/
 ├── tests/
-│   ├── conftest.py           # TRUNCATE-per-test isolation, NullPool engine
+│   ├── conftest.py           # aislamiento TRUNCATE-por-test, motor NullPool
 │   ├── test_health.py
 │   ├── test_schemas_reports.py
-│   └── test_reports_v1.py    # parity suite with NestJS
+│   └── test_reports_v1.py    # suite de paridad con NestJS
 ├── Dockerfile
 ├── docker-entrypoint.sh
 ├── docker-compose.yml
