@@ -11,15 +11,37 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import security
+from app.core.config import settings
 from app.db.session import get_db
 from app.schemas.reports import CreateReportRequest, ReportResponse
 from app.services import reports as reports_service
 from app.services.reports import ReportFilters
 
 router = APIRouter(prefix="/v1/report", tags=["reports"])
+
+
+def require_ingest_token(
+    x_vx_token: str | None = Header(default=None, alias="X-VX-Token"),
+) -> None:
+    """Token opcional para la ingesta.
+
+    Vacío por defecto: los clientes Tauri ya instalados en los equipos del
+    centro no envían cabecera, y exigirles una los rompería. Al fijar
+    ``INGEST_TOKEN`` la ingesta pasa a exigirlo, así que solo se activa
+    después de redesplegar el ``.deb`` en todos los equipos.
+    """
+    if not settings.ingest_token:
+        return
+    if not x_vx_token or not security.constant_time_equals(
+        x_vx_token, settings.ingest_token
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Token de ingesta inválido"
+        )
 
 
 def _parse_tri_bool(s: str | None) -> bool | None:
@@ -47,6 +69,7 @@ def _parse_iso(s: str | None) -> datetime | None:
     status_code=status.HTTP_201_CREATED,
     response_model=ReportResponse,
     summary="Registrar un reporte de verificación",
+    dependencies=[Depends(require_ingest_token)],
 )
 async def create_report(
     body: CreateReportRequest,

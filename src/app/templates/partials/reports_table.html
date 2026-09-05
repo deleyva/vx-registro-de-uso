@@ -5,6 +5,7 @@
         <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
         <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CID</th>
         <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
+        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Etiquetas</th>
         {% for c in components %}
           <th class="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
             {{ component_labels.get(c, c) }}
@@ -27,6 +28,15 @@
             </td>
             <td class="px-3 py-3 whitespace-nowrap text-gray-900">{{ r.migasfree_cid }}</td>
             <td class="px-3 py-3 whitespace-nowrap text-gray-900">{{ r.usuario_grafico }}</td>
+            <td class="px-3 py-3 text-gray-600">
+              {% if r.etiquetas %}
+                {% for etiqueta in r.etiquetas.replace(',', ' ').split() %}
+                  <span class="inline-block mb-0.5 px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200 text-xs text-gray-700">{{ etiqueta }}</span>
+                {% endfor %}
+              {% else %}
+                <span class="text-gray-300">—</span>
+              {% endif %}
+            </td>
 
             {% for c in components %}
               {% set item = r.verificacion_equipos.get(c) %}

@@ -26,6 +26,10 @@ class Report(Base):
     usuario_grafico: Mapped[str] = mapped_column(
         "usuarioGrafico", String, nullable=False
     )
+    # Etiquetas de migasfree, tal cual las devuelve `vx-migasfree-tags -g` en el
+    # equipo. Nullable a propósito: los clientes instalados antes de septiembre
+    # de 2026 no las envían y deben seguir pudiendo reportar.
+    etiquetas: Mapped[str | None] = mapped_column(String, nullable=True)
     verificacion_equipos: Mapped[dict[str, Any]] = mapped_column(
         "verificacionEquipos", JSONB, nullable=False
     )

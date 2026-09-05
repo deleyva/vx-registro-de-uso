@@ -18,6 +18,12 @@
       </a>
       <span class="h-2 w-2 bg-green-500 rounded-full animate-pulse"></span>
       <span class="text-sm text-gray-500">En vivo</span>
+      {% if auth_enabled %}
+      {% if role == "admin" %}
+      <a href="/admin" class="text-sm text-blue-600 hover:underline">Administración</a>
+      {% endif %}
+      <a href="/logout" class="text-sm text-gray-500 hover:underline">Salir</a>
+      {% endif %}
     </div>
   </div>
 </header>

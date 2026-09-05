@@ -18,6 +18,7 @@ if str(SRC) not in sys.path:
 
 from app.core.config import settings  # noqa: E402
 from app.db.base import Base  # noqa: E402
+from app.models import app_setting as _app_setting_model  # noqa: F401, E402
 from app.models import report as _report_model  # noqa: F401, E402
 
 config = context.config

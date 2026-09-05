@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Acceso — VX Reportes{% endblock %}
+
+{% block body %}
+<main class="min-h-screen flex items-center justify-center px-4">
+  <div class="w-full max-w-sm">
+    <div class="bg-white rounded-xl shadow-md border border-gray-200 p-8">
+      <h1 class="text-2xl font-bold text-gray-900">VX Reportes</h1>
+      <p class="mt-1 text-sm text-gray-500">Introduce la clave de acceso para ver el panel.</p>
+
+      {% if error %}
+      <p class="mt-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">{{ error }}</p>
+      {% endif %}
+
+      <form method="post" action="/login" class="mt-6 space-y-4">
+        <input type="hidden" name="next" value="{{ next }}" />
+        <div>
+          <label for="password" class="block text-sm font-medium text-gray-700">Clave</label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            required
+            autofocus
+            class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+        <button
+          type="submit"
+          class="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+        >
+          Entrar
+        </button>
+      </form>
+    </div>
+    <p class="mt-4 text-center text-xs text-gray-500">
+      La clave la reparte el administrador del centro.
+    </p>
+  </div>
+</main>
+{% endblock %}

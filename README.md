@@ -49,6 +49,16 @@ Se mapean dos puertos del host al mismo puerto `3001` del contenedor:
 | GET | `/health` | Comprobación de vida (ejecuta `SELECT 1`) |
 | GET | `/api/docs` | Swagger UI |
 | GET | `/api/openapi.json` | Esquema OpenAPI |
+| GET/POST | `/login` | Pantalla de acceso |
+| GET/POST | `/logout` | Cerrar sesión |
+| GET | `/admin` | Panel de administración (solo administración) |
+| POST | `/admin/rotate` | Cambia la clave de acceso del profesorado |
+| POST | `/admin/admin-password` | Crea o cambia la clave de administración |
+| POST | `/admin/login-toggle` | Quita o vuelve a pedir el login del panel |
+
+Con `AUTH_ENABLED=true` (por defecto) **todo lo anterior exige sesión salvo**
+`POST /v1/report`, `/health`, `/login`, `/logout` y `/static/*`. Ver
+[Autenticación](#autenticación).
 
 ### Payload de POST `/v1/report`
 
@@ -57,6 +67,7 @@ Se mapean dos puertos del host al mismo puerto `3001` del contenedor:
   "timestamp": "2026-04-09T07:59:26.463Z",
   "migasfree_cid": "12345",
   "usuario_grafico": "MOCK_USER",
+  "etiquetas": "aula-musica planta-1",     // opcional; los clientes antiguos no lo envían
   "empresa": "VITALINUX",                      // se acepta pero no se almacena
   "tipo_verificacion": "equipos_escritorio",   // se acepta pero no se almacena
   "verificacion_equipos": {
@@ -73,6 +84,13 @@ Se mapean dos puertos del host al mismo puerto `3001` del contenedor:
 
 Los campos desconocidos se aceptan silenciosamente (Pydantic `extra="ignore"`).
 
+**`etiquetas`** son las etiquetas de migasfree del equipo. Las obtiene el cliente
+`vx-login-app` con `vx-migasfree-tags -g` (sin sudo, igual que el CID) y las envía como
+una cadena, separadas por espacios. El panel las muestra en su propia columna. Es un
+campo **opcional**: los equipos con una versión anterior del cliente no lo mandan y
+siguen reportando igual; en esos informes la columna sale vacía. Si el comando falla en
+un equipo, el informe se envía de todas formas con las etiquetas vacías.
+
 Formato de respuesta (camelCase):
 ```json
 {
@@ -80,6 +98,7 @@ Formato de respuesta (camelCase):
   "timestamp": "2026-04-09T07:59:26.463000Z",
   "migasfreeCid": "12345",
   "usuarioGrafico": "MOCK_USER",
+  "etiquetas": "aula-musica planta-1",
   "verificacionEquipos": { ... },
   "resumen": { ... },
   "createdAt": "2026-04-09T13:14:22.123456Z"
@@ -96,6 +115,64 @@ Ver `.env.example`.
 | `APP_PORT` | `3001` | Puerto de escucha de Uvicorn dentro del contenedor. |
 | `ENVIRONMENT` | `development` | Etiqueta libre (`development`/`production`). |
 | `CORS_ORIGINS` | `http://localhost:3000,http://localhost:3001` | Lista de orígenes permitidos separados por comas. |
+| `AUTH_ENABLED` | `true` | Ponlo a `false` solo en desarrollo: deja panel y API de lectura abiertos. |
+| `ADMIN_PASSWORD` | `vxloginadmin` | Llave maestra. Vale siempre y solo se cambia aquí. |
+| `INITIAL_ACCESS_PASSWORD` | `vxlogindocente` | Clave del profesorado en el primer arranque. Después manda la guardada en base de datos. |
+| `SESSION_SECRET` | *(vacío)* | Firma de la cookie. La genera el instalador, única por servidor. Vacía => las sesiones mueren en cada reinicio. |
+| `SESSION_MAX_AGE` | `43200` | Duración de la sesión en segundos (12 h). |
+| `COOKIE_SECURE` | `false` | Ponlo a `true` cuando el panel vaya por HTTPS. |
+| `INGEST_TOKEN` | *(vacío)* | Si se rellena, `POST /v1/report` exige la cabecera `X-VX-Token`. |
+
+## Acceso al panel
+
+**Claves de fábrica** (públicas a propósito: esto va en la red local del centro y
+tiene que funcionar nada más instalarlo):
+
+| | Clave | Para qué |
+|---|---|---|
+| Profesorado | `vxlogindocente` | ver los informes |
+| Administración | `vxloginadmin` | ver los informes **y** cambiar ajustes |
+
+![Pantalla de acceso](docs/img/login.jpg)
+
+Con la clave de profesorado solo se ve la tabla. Con la de administración aparece
+además el enlace «Administración».
+
+![Panel](docs/img/panel-admin.jpg)
+
+### Lo que puede hacer el administrador
+
+Todo desde `/admin`, y **solo él**: cada formulario vuelve a pedir la clave de
+administración, así que un ordenador con la sesión abierta olvidada no sirve para
+cambiar nada.
+
+![Administración](docs/img/admin-crear-clave.jpg)
+
+1. **Cambiar la clave del profesorado.** Al cambiarla, quien estuviera dentro con la
+   anterior queda fuera.
+2. **Cambiar la clave de administración.** La nueva se guarda en la base de datos y
+   se cambia desde el navegador, sin tocar el servidor.
+3. **Quitar el login.** El panel queda abierto: cualquiera que llegue a la dirección
+   ve los informes sin teclear nada. **`/admin` sigue pidiendo la clave**, que es
+   cómo se vuelve a activar.
+
+![Login quitado](docs/img/admin-login-quitado.jpg)
+
+Si un profesor escribe `/admin` a mano:
+
+![Sin permiso](docs/img/sin-permiso.jpg)
+
+### La llave maestra
+
+`ADMIN_PASSWORD` en el `.env` del servidor vale siempre, aunque se cambie la de
+administración desde el navegador. Solo se cambia editando ese fichero y
+reiniciando, así que nadie puede dejarte fuera desde la interfaz.
+
+### Lo que NO pide clave
+
+`POST /v1/report` sigue abierto: los equipos del centro tienen el cliente instalado
+por `.deb` y exigirles credencial los dejaría sin reportar. También `/health` y
+`/static/*`.
 
 ## Desarrollo local
 
@@ -211,6 +288,30 @@ En **upgrades** el `.env` ya editado **se conserva** (está marcado como fichero
 configuración). Para actualizar a una versión nueva basta con `dpkg -i` del nuevo `.deb`, o
 `sudo systemctl restart vx-registro` si solo cambió la imagen `:latest`.
 
+#### Claves tras instalar
+
+El `.env` queda con las claves de fábrica (`vxloginadmin` / `vxlogindocente`) y en
+permisos `600 root:root`. Entra en el panel con la de administración y cámbialas desde
+`/admin`.
+
+`SESSION_SECRET` sí lo genera `postinst.sh`, único de esa máquina. Ese no es público ni
+hay que teclearlo: es la firma de las cookies, y publicarlo permitiría falsificar
+sesiones de administrador sin conocer ninguna clave.
+
+El comportamiento al actualizar, comprobado en un contenedor Debian sobre los cuatro
+casos que se dan en la práctica:
+
+| Situación del `.env` | Qué hace |
+|---|---|
+| No existían las variables (`.env` de una versión anterior) | las añade al final, con valores generados |
+| Ya tenían valor | **no las toca** |
+| Declaradas pero vacías (`ADMIN_PASSWORD=`) | rellena la línea, sin duplicarla |
+| Sin salto de línea final | añade el salto antes, para no pegar la variable a la última línea |
+
+`POSTGRES_PASSWORD` **no se genera nunca**, ni siquiera vacía: cambiarla en un servidor
+con el volumen ya inicializado no cambia la contraseña real de Postgres, y dejaría a la
+aplicación sin poder conectar. Esa sigue siendo manual.
+
 ### Qué coloca el `.deb`
 
 | Archivo del repo | Destino en el host |
@@ -255,26 +356,34 @@ es lo que el workflow usa para etiquetar la imagen y nombrar la Release.
 ├── src/app/
 │   ├── main.py              # App FastAPI, routers, CORS, archivos estáticos
 │   ├── core/
+│   │   ├── authguard.py     # middleware de sesión: qué rutas son públicas
 │   │   ├── config.py        # pydantic-settings
 │   │   ├── ids.py           # generador cuid2
-│   │   └── logging.py
+│   │   ├── logging.py
+│   │   └── security.py      # hashing scrypt (biblioteca estándar)
 │   ├── db/
 │   │   ├── base.py          # DeclarativeBase
 │   │   └── session.py       # async_engine, dependencia get_db
 │   ├── models/
+│   │   ├── app_setting.py   # claves de acceso y administración, hasheadas
 │   │   └── report.py        # Modelo ORM Report (nombres de columna en camelCase)
 │   ├── schemas/
 │   │   ├── camel.py         # Base CamelModel (alias_generator)
 │   │   └── reports.py       # CreateReportRequest + ReportResponse
 │   ├── services/
+│   │   ├── auth.py          # verificación, rotación y sellos de sesión
 │   │   └── reports.py       # create, find_all (filtros en memoria), find_one
 │   ├── routers/
+│   │   ├── auth.py          # /login, /logout, /admin
 │   │   ├── health.py        # GET /health
 │   │   ├── reports_v1.py    # POST/GET /v1/report, GET /v1/report/{id}
 │   │   └── web.py           # GET / (panel HTMX), GET /reports/{id}/component/{c}
 │   ├── templates/           # Jinja2
+│   │   ├── admin.html
 │   │   ├── base.html
+│   │   ├── forbidden.html
 │   │   ├── index.html
+│   │   ├── login.html
 │   │   └── partials/
 │   │       ├── reports_table.html
 │   │       └── report_detail_modal.html
@@ -286,8 +395,11 @@ es lo que el workflow usa para etiquetar la imagen y nombrar la Release.
 │           └── htmx.min.js
 ├── migrations/               # Alembic
 │   └── versions/
+├── docs/img/                 # capturas usadas en este README
+├── ISA.md                    # estado del proyecto: qué se afirma y con qué evidencia
 ├── tests/
 │   ├── conftest.py           # aislamiento TRUNCATE-por-test, motor NullPool
+│   ├── test_auth.py          # sesiones, roles y rotación de claves
 │   ├── test_health.py
 │   ├── test_schemas_reports.py
 │   └── test_reports_v1.py    # suite de paridad con NestJS

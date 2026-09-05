@@ -27,6 +27,10 @@ os.environ.setdefault(
     "DATABASE_URL",
     "postgresql+asyncpg://postgres:postgres@localhost:5433/vx_control",
 )
+# La suite de paridad con la API NestJS corre sin autenticación; los tests que
+# la ejercitan la activan ellos mismos (ver tests/test_auth.py).
+os.environ.setdefault("AUTH_ENABLED", "false")
+os.environ.setdefault("SESSION_SECRET", "test-session-secret")
 
 from app.db import session as session_module  # noqa: E402
 from app.db.session import get_db  # noqa: E402
@@ -62,13 +66,16 @@ async def _override_engine_for_tests():
 
 @pytest_asyncio.fixture(autouse=True)
 async def _truncate_reports(_override_engine_for_tests) -> AsyncIterator[None]:
-    """Empty the reports table before AND after every test."""
+    """Empty the reports and app_settings tables before AND after every test."""
     engine = _override_engine_for_tests
+    statement = text(
+        'TRUNCATE TABLE "reports", "app_settings" RESTART IDENTITY CASCADE'
+    )
     async with engine.begin() as conn:
-        await conn.execute(text('TRUNCATE TABLE "reports" RESTART IDENTITY CASCADE'))
+        await conn.execute(statement)
     yield
     async with engine.begin() as conn:
-        await conn.execute(text('TRUNCATE TABLE "reports" RESTART IDENTITY CASCADE'))
+        await conn.execute(statement)
 
 
 @pytest_asyncio.fixture
@@ -101,3 +108,28 @@ def report_payload() -> dict:
             "requiere_atencion": True,
         },
     }
+
+
+@pytest.fixture
+def auth_settings(monkeypatch):
+    """Activa la autenticación con una clave de administración conocida."""
+    from app.core.config import settings as app_settings
+
+    monkeypatch.setattr(app_settings, "auth_enabled", True)
+    monkeypatch.setattr(app_settings, "admin_password", "admin-de-prueba")
+    monkeypatch.setattr(app_settings, "ingest_token", "")
+    monkeypatch.setattr(app_settings, "initial_access_password", "clave-de-profes")
+    return app_settings
+
+
+@pytest_asyncio.fixture
+async def seeded_access_password(auth_settings) -> str:
+    """Siembra la clave de acceso compartida y devuelve el valor en claro."""
+    from app.core import security
+    from app.models.app_setting import ACCESS_PASSWORD_KEY, AppSetting
+
+    plain = "clave-de-profes"
+    async with session_module.SessionLocal() as db:
+        db.add(AppSetting(key=ACCESS_PASSWORD_KEY, value=security.hash_password(plain)))
+        await db.commit()
+    return plain

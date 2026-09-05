@@ -13,11 +13,15 @@ from typing import Any
 import pytest
 from httpx import AsyncClient
 
+# `etiquetas` se añadió en septiembre de 2026 por petición explícita. Es una
+# ADICIÓN al contrato, no un cambio: ninguna clave existente cambia de nombre
+# ni de tipo, y el único cliente (la app Tauri) solo hace POST, no lee esto.
 EXPECTED_RESPONSE_KEYS = {
     "id",
     "timestamp",
     "migasfreeCid",
     "usuarioGrafico",
+    "etiquetas",
     "verificacionEquipos",
     "resumen",
     "createdAt",

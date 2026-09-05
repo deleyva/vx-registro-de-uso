@@ -16,6 +16,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.db.session import get_db
 from app.routers.reports_v1 import _parse_iso, _parse_tri_bool
 from app.schemas.reports import ReportResponse
@@ -110,6 +111,8 @@ async def index(
     )
 
     ctx = {
+        "role": getattr(request.state, "role", None),
+        "auth_enabled": settings.auth_enabled,
         "reports": reports,
         "components": components,
         "component_labels": COMPONENT_LABELS,

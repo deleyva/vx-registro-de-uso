@@ -29,7 +29,15 @@ services:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/vx_control
       APP_PORT: 3001
       ENVIRONMENT: production
-      CORS_ORIGINS: http://localhost:3000,http://localhost:3001,http://100.99.123.84:3000
+      CORS_ORIGINS: http://localhost:3000,http://localhost:3001
+      # Autenticación — ver .env.example para qué hace cada una.
+      AUTH_ENABLED: ${AUTH_ENABLED:-true}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      INITIAL_ACCESS_PASSWORD: ${INITIAL_ACCESS_PASSWORD:-}
+      SESSION_SECRET: ${SESSION_SECRET:-}
+      SESSION_MAX_AGE: ${SESSION_MAX_AGE:-43200}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      INGEST_TOKEN: ${INGEST_TOKEN:-}
     ports:
       - "3001:3001"
       - "3000:3001"

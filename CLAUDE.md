@@ -8,7 +8,17 @@ VX Control Center — a single Python app (FastAPI + SQLAlchemy async + Jinja2/H
 
 ## Critical parity constraints
 
-**The MigrasFree agent is external and cannot be changed.** The `/v1/report*` contract must stay byte-for-byte compatible with the old NestJS API:
+**El cliente que envía informes es `~/vx-login-app` (Tauri + Rust), no un agente de
+terceros** — CORRECCIÓN del 2026-09-04. Este fichero afirmaba que era externo e
+intocable; es falso, es del mismo autor y tiene su propio pipeline de release. Lo que
+sí es cierto es la consecuencia práctica: está desplegado por `.deb` en cada equipo
+del centro, así que **cambiar su contrato obliga a redesplegar todos los equipos**. Por
+eso el contrato `/v1/report*` se trata como congelado y `POST /v1/report` sigue sin
+autenticar. Ese cliente **solo hace POST**: no lee nada por HTTP (verificado por grep
+sobre `script.js` y `src-tauri/src/main.rs`), y por eso los GET sí se pudieron cerrar.
+
+El contrato `/v1/report*` debe seguir siendo byte-for-byte compatible con la API NestJS
+antigua:
 
 - Routes: `POST /v1/report`, `GET /v1/report`, `GET /v1/report/{id}`
 - Request body: snake_case (`timestamp`, `migasfree_cid`, `usuario_grafico`, `verificacion_equipos`, `resumen`, optional `empresa`, `tipo_verificacion`)
@@ -17,6 +27,48 @@ VX Control Center — a single Python app (FastAPI + SQLAlchemy async + Jinja2/H
 - **`empresa` and `tipo_verificacion` are intentionally accepted and then dropped.** Do NOT add columns to store them. This matches the old NestJS behavior exactly. If this ever needs to change, update the `Report` model, add a migration, and update the response schema in lockstep.
 - **Unknown fields in POST body are silently ignored** (`model_config = {"extra": "ignore"}` on `CreateReportRequest`). This is defensive against future MigrasFree changes.
 - **Query params `onlyErrors` and `onlyOperativo` are parsed via `_parse_tri_bool`**, which only treats the literal strings `"true"`/`"false"` as bools and returns `None` otherwise. Do NOT refactor to FastAPI's automatic `bool` coercion — it accepts `"1"`, `"yes"`, etc. and diverges from NestJS.
+
+## Autenticación
+
+Instalada el 2026-09-04. El diseño y el porqué están en el README (sección
+«Autenticación») y las afirmaciones verificadas en `ISA.md`. Lo que hay que saber para
+no romperlo:
+
+- **`core/authguard.py` decide qué pasa sin credencial**, y la lista es corta a
+  propósito: `POST /v1/report`, `/health`, `/login`, `/logout`, `/favicon.ico` y
+  `/static/*`. Todo lo demás exige sesión, incluidos los GET de `/v1/report*` y la
+  documentación OpenAPI. **No añadas rutas a esa lista sin pensarlo**: el incidente que
+  motivó todo esto es que los GET devolvían el histórico completo sin credencial.
+- **Tres llaves**, no dos: clave de acceso y clave de administración en `app_settings`
+  (hasheadas), más la llave maestra en `ADMIN_PASSWORD`. La maestra solo se lee, nunca
+  se escribe desde código. Esa asimetría es el invariante: garantiza que nadie pueda
+  dejar fuera a quien administra el servidor desde la interfaz. No la rompas añadiendo
+  una ruta que la modifique.
+- **Las claves de fábrica son públicas y están en el repositorio a propósito**
+  (`vxloginadmin` / `vxlogindocente`, en `core/config.py`). Decisión explícita del
+  autor el 2026-09-04: el despliegue es la red local del centro y la prioridad es que
+  funcione al instalarlo. No las sustituyas por generación aleatoria. `SESSION_SECRET`
+  es la excepción y sí se genera por servidor: no es una clave que nadie teclee, y
+  publicarla permitiría falsificar sesiones sin conocer ninguna clave.
+- **El administrador puede quitar el login** (`auth_required` en `app_settings`,
+  conmutado desde `/admin`). Eso abre el panel y los GET de la API, pero **nunca**
+  `/admin`: `_is_admin_route()` en el guardia deja esas rutas fuera del atajo. Si tocas
+  esa función, comprueba que sigue siendo la única forma de volver a activar el login.
+- **El sello de sesión no es decorativo.** Cada sesión guarda de qué llave salió y la
+  marca temporal de esa llave; el guardia la compara en cada petición contra el estado
+  actual. Es lo que hace que rotar una clave expulse a quien entró con la anterior. Se
+  consulta la fila en cada petición protegida, sin caché, y es deliberado: una caché con
+  TTL retrasaría la revocación, que es justo lo que la rotación debe garantizar.
+- **El hashing es `hashlib.scrypt`**, no passlib ni bcrypt. Fue una decisión para no
+  añadir dependencias: la única que suma la autenticación es `itsdangerous`, que exige
+  `SessionMiddleware`.
+- **El orden de `add_middleware` en `main.py` es carga útil.** Starlette ejecuta el
+  último añadido como el más externo. El orden actual (guardia → sesión → CORS) es el
+  único que resuelve el preflight antes de nada, descifra la cookie antes de mirar el
+  rol, y decide antes de llegar a la ruta.
+- **La suite corre con `AUTH_ENABLED=false`** (fijado en `conftest.py`) salvo
+  `tests/test_auth.py`, que lo activa por fixture. Así los 16 tests de paridad con
+  NestJS siguen siendo exactamente los mismos que antes.
 
 ## Important conventions
 
@@ -147,6 +199,12 @@ NOT on each workstation. See the README "Despliegue en producción" section for 
 - **GHCR image visibility**: the repo is public, so the Actions-published container package
   inherits public visibility automatically — no manual step. If the repo ever goes private,
   the package must be made public (or the host needs `docker login ghcr.io`).
+- **Los secretos del panel los genera `deploy/scripts/postinst.sh` en el host, nunca la
+  CI.** El `.deb` va adjunto a una Release pública: cualquier valor que la CI escribiese
+  en la plantilla del `.env` sería descargable e idéntico en todas las instalaciones. La
+  función `ensure_var` es idempotente a propósito — nunca pisa una variable que ya tenga
+  valor — y `POSTGRES_PASSWORD` queda deliberadamente fuera, porque cambiarla en un host
+  con el volumen ya inicializado deja la aplicación sin conexión.
 - When changing the install layout, the path `/opt/vx-registro/` is hardcoded across
   `deploy/nfpm.yaml`, `deploy/vx-registro.service`, `deploy/scripts/*`, and the README — it's
   a packaging contract, change all of them together.
@@ -164,6 +222,15 @@ If any of these become needed:
 2. Port models first (they were in `packages/database/prisma/schema.prisma` as `Device`, `UsageLog`, `User`)
 3. Add migrations, services, routers, tests (see "How to add an endpoint" above)
 
+## Estado del proyecto
+
+`ISA.md` en la raíz es el registro de qué afirma este proyecto y con qué evidencia se
+cerró cada afirmación. Al añadir funcionalidad, añade criterios ahí en vez de abrir
+documentos paralelos, y rellena su sección `## Verification` con la evidencia real
+(salida de comando, sonda HTTP, captura), nunca con «debería funcionar».
+
 ## History
 
+- **2026-09-04** (tarde): claves de fábrica públicas, interruptor para quitar el login, y campo `etiquetas` en los informes — el cliente Tauri las obtiene con `vx-migasfree-tags -g`, sin sudo. `etiquetas` es una ADICIÓN al contrato `/v1/report`, aprobada explícitamente; los tests de paridad se actualizaron para incluirla.
+- **2026-09-04**: Autenticación de sesión con tres llaves (acceso, administración delegada, llave maestra). Se cierran los GET de `/v1/report*`; la ingesta sigue abierta. Se añade `ISA.md`. Se quitan de `config.py` y `docker-compose.yml` unas IP privadas escritas en claro, que **siguen en el historial de git** porque el repo es público.
 - **2026-04-09**: Full rewrite from TypeScript (NestJS 10 + Next.js 15 + Prisma 6) to Python (FastAPI + SQLAlchemy 2.0 + Jinja2/HTMX). Old history and code are recoverable via git tag `pre-python-rewrite`.

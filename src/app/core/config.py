@@ -17,8 +17,32 @@ class Settings(BaseSettings):
     cors_origins: Annotated[list[str], NoDecode] = [
         "http://localhost:3000",
         "http://localhost:3001",
-        "http://100.99.123.84:3000",
     ]
+
+    # --- Autenticacion -------------------------------------------------
+    # Se pone a false solo en desarrollo y en la suite que verifica la
+    # paridad con la API NestJS antigua.
+    auth_enabled: bool = True
+    # Llave maestra. Vive SOLO aqui, nunca en la base de datos, de modo que
+    # ninguna ruta de la interfaz pueda modificarla y dejar fuera al
+    # administrador. El valor por defecto es PUBLICO y esta en el repositorio a
+    # proposito: esto se despliega en la red local del centro y el objetivo es
+    # que funcione nada mas instalarlo. Cambialo en el .env de produccion si el
+    # panel llega a ser alcanzable desde fuera.
+    admin_password: str = "vxloginadmin"
+    # Clave de acceso del profesorado en el primer arranque. Tambien publica y
+    # por el mismo motivo. Despues manda la copia hasheada en app_settings, que
+    # el administrador cambia desde /admin.
+    initial_access_password: str = "vxlogindocente"
+    # Firma de la cookie de sesion. Vacia => se genera una efimera y las
+    # sesiones mueren en cada reinicio (se avisa en el log).
+    session_secret: str = ""
+    session_max_age: int = 43200  # 12 h
+    # Poner a true cuando haya HTTPS delante.
+    cookie_secure: bool = False
+    # Token opcional para POST /v1/report. Vacio (por defecto) => la ingesta
+    # sigue abierta, que es lo que necesitan los clientes ya instalados.
+    ingest_token: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",
