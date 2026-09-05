@@ -93,6 +93,9 @@ def report_payload() -> dict:
         "timestamp": "2026-04-09T07:59:26.463Z",
         "migasfree_cid": "12345",
         "usuario_grafico": "MOCK_USER_DELEYVA",
+        # Estos dos ya no se declaran en el esquema (nunca se almacenaron).
+        # Se siguen enviando aquí a propósito: reproducen el payload de los
+        # equipos con el cliente antiguo, que deben seguir funcionando.
         "empresa": "VITALINUX",
         "tipo_verificacion": "equipos_escritorio",
         "verificacion_equipos": {

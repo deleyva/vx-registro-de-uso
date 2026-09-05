@@ -76,9 +76,6 @@ async def create_report(
     db: AsyncSession = Depends(get_db),
 ) -> ReportResponse:
     payload = body.model_dump()
-    # empresa and tipo_verificacion are accepted but never persisted
-    payload.pop("empresa", None)
-    payload.pop("tipo_verificacion", None)
     report = await reports_service.create(db, payload)
     return ReportResponse.model_validate(report)
 

@@ -27,10 +27,12 @@ def test_create_request_accepts_extra_fields_and_ignores_them() -> None:
         "field_we_dont_know_about": "ignored",
     }
     parsed = CreateReportRequest.model_validate(payload)
-    assert parsed.empresa == "VITALINUX"
-    assert parsed.tipo_verificacion == "equipos_escritorio"
-    # extra="ignore" — unknown fields silently dropped
+    # extra="ignore" — todo lo no declarado se descarta sin error. Eso incluye
+    # `empresa` y `tipo_verificacion`, que dejaron de declararse en septiembre
+    # de 2026 porque nunca se almacenaron.
     assert not hasattr(parsed, "field_we_dont_know_about")
+    assert not hasattr(parsed, "empresa")
+    assert not hasattr(parsed, "tipo_verificacion")
 
 
 def test_response_serialization_uses_camel_keys() -> None:

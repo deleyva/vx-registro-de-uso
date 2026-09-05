@@ -9,12 +9,14 @@ from app.schemas.camel import CamelModel
 
 
 class CreateReportRequest(BaseModel):
-    """Inbound payload from the MigrasFree desktop client.
+    """Payload entrante del cliente de escritorio.
 
-    ``empresa`` and ``tipo_verificacion`` are accepted but silently discarded
-    (they are not persisted). Unknown fields are ignored to keep parity with
-    the NestJS ``ValidationPipe(whitelist: true)`` behavior, which strips
-    unknown properties without erroring.
+    ``model_config = {"extra": "ignore"}`` hace que cualquier campo no
+    declarado se descarte en silencio, sin error. Eso cubre tanto campos
+    futuros como los antiguos ``empresa`` y ``tipo_verificacion``, que se
+    dejaron de declarar en septiembre de 2026: nunca se almacenaron, así que
+    declararlos solo servía para sugerir que hacían algo. Los clientes que
+    todavía los envíen siguen recibiendo 201.
     """
 
     timestamp: datetime
@@ -23,8 +25,6 @@ class CreateReportRequest(BaseModel):
     # Etiquetas del equipo. Opcional: los clientes desplegados antes de
     # septiembre de 2026 no lo envían y deben seguir funcionando.
     etiquetas: str | None = None
-    empresa: str | None = None
-    tipo_verificacion: str | None = None
     verificacion_equipos: dict[str, Any]
     resumen: dict[str, Any]
 

@@ -45,7 +45,7 @@ async def _post(client: AsyncClient, payload: dict[str, Any]) -> dict[str, Any]:
 async def test_post_valid_payload_returns_201_with_camel_keys(
     client: AsyncClient, report_payload: dict
 ) -> None:
-    """Case 1: POST valid payload → 201, camelCase keys, no empresa/tipo_verificacion."""
+    """Case 1: POST valid payload → 201, claves camelCase, sin campos de más."""
     body = await _post(client, report_payload)
     assert _shape(body) == EXPECTED_RESPONSE_KEYS
     assert body["id"]
@@ -67,10 +67,16 @@ async def test_post_with_unknown_field_returns_201(
 
 
 @pytest.mark.asyncio
-async def test_post_drops_empresa_and_tipo_verificacion(
+async def test_post_acepta_campos_de_clientes_antiguos(
     client: AsyncClient, report_payload: dict
 ) -> None:
-    """Case 3: empresa / tipo_verificacion are accepted but never persisted."""
+    """Un equipo con el cliente viejo sigue reportando.
+
+    El fixture envía `empresa` y `tipo_verificacion`, que ya no se declaran.
+    Este test existe para que quitarlos no rompa a los equipos que aún los
+    mandan: el POST debe seguir devolviendo 201 y la respuesta no debe
+    contenerlos.
+    """
     body = await _post(client, report_payload)
     report_id = body["id"]
 

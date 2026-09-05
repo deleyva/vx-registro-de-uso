@@ -21,10 +21,10 @@ El contrato `/v1/report*` debe seguir siendo byte-for-byte compatible con la API
 antigua:
 
 - Routes: `POST /v1/report`, `GET /v1/report`, `GET /v1/report/{id}`
-- Request body: snake_case (`timestamp`, `migasfree_cid`, `usuario_grafico`, `verificacion_equipos`, `resumen`, optional `empresa`, `tipo_verificacion`)
-- Response body: camelCase (`id`, `timestamp`, `migasfreeCid`, `usuarioGrafico`, `verificacionEquipos`, `resumen`, `createdAt`)
+- Request body: snake_case (`timestamp`, `migasfree_cid`, `usuario_grafico`, `verificacion_equipos`, `resumen`, opcional `etiquetas`)
+- Response body: camelCase (`id`, `timestamp`, `migasfreeCid`, `usuarioGrafico`, `etiquetas`, `verificacionEquipos`, `resumen`, `createdAt`)
 - Status codes: `201` on create, `200` on list/get, `404` on missing id
-- **`empresa` and `tipo_verificacion` are intentionally accepted and then dropped.** Do NOT add columns to store them. This matches the old NestJS behavior exactly. If this ever needs to change, update the `Report` model, add a migration, and update the response schema in lockstep.
+- **`empresa` y `tipo_verificacion` se eliminaron del esquema el 2026-09-05.** Nunca se almacenaron, así que declararlos solo sugería que hacían algo. Los clientes que aún los envíen siguen recibiendo 201, porque `extra="ignore"` descarta lo no declarado sin error. No los vuelvas a añadir sin una columna detrás.
 - **Unknown fields in POST body are silently ignored** (`model_config = {"extra": "ignore"}` on `CreateReportRequest`). This is defensive against future MigrasFree changes.
 - **Query params `onlyErrors` and `onlyOperativo` are parsed via `_parse_tri_bool`**, which only treats the literal strings `"true"`/`"false"` as bools and returns `None` otherwise. Do NOT refactor to FastAPI's automatic `bool` coercion — it accepts `"1"`, `"yes"`, etc. and diverges from NestJS.
 

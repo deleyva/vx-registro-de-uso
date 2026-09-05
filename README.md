@@ -56,9 +56,10 @@ Se mapean dos puertos del host al mismo puerto `3001` del contenedor:
 | POST | `/admin/admin-password` | Crea o cambia la clave de administración |
 | POST | `/admin/login-toggle` | Quita o vuelve a pedir el login del panel |
 
-Con `AUTH_ENABLED=true` (por defecto) **todo lo anterior exige sesión salvo**
-`POST /v1/report`, `/health`, `/login`, `/logout` y `/static/*`. Ver
-[Autenticación](#autenticación).
+Todo lo anterior exige sesión **salvo** `POST /v1/report`, `/health`, `/login`,
+`/logout`, `/favicon.ico` y `/static/*`. El administrador puede quitar el login, y
+entonces el panel y los GET quedan abiertos, pero `/admin` no. Ver
+[Acceso al panel](#acceso-al-panel).
 
 ### Payload de POST `/v1/report`
 
@@ -68,8 +69,6 @@ Con `AUTH_ENABLED=true` (por defecto) **todo lo anterior exige sesión salvo**
   "migasfree_cid": "12345",
   "usuario_grafico": "MOCK_USER",
   "etiquetas": "aula-musica planta-1",     // opcional; los clientes antiguos no lo envían
-  "empresa": "VITALINUX",                      // se acepta pero no se almacena
-  "tipo_verificacion": "equipos_escritorio",   // se acepta pero no se almacena
   "verificacion_equipos": {
     "pantalla": { "estado": "correcto", "problema": null, "obligatorio": true },
     "raton":    { "estado": "defectuoso", "problema": "no responde", "obligatorio": true }
@@ -82,7 +81,10 @@ Con `AUTH_ENABLED=true` (por defecto) **todo lo anterior exige sesión salvo**
 }
 ```
 
-Los campos desconocidos se aceptan silenciosamente (Pydantic `extra="ignore"`).
+Los campos desconocidos se aceptan silenciosamente (Pydantic `extra="ignore"`), así
+que un equipo con una versión antigua del cliente sigue reportando aunque mande campos
+que ya no existen. Es lo que pasa con `empresa` y `tipo_verificacion`: nunca se
+almacenaron, y desde septiembre de 2026 ni siquiera se declaran.
 
 **`etiquetas`** son las etiquetas de migasfree del equipo. Las obtiene el cliente
 `vx-login-app` con `vx-migasfree-tags -g` (sin sudo, igual que el CID) y las envía como

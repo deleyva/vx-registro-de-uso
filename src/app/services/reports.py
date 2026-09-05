@@ -79,8 +79,8 @@ def _strip_tz(dt: datetime) -> datetime:
 async def create(db: AsyncSession, payload: dict[str, Any]) -> Report:
     """Insert a Report row from a (already-validated) payload dict.
 
-    Only the parity-relevant fields are stored. ``empresa`` and
-    ``tipo_verificacion`` are deliberately dropped here, even if present.
+    Solo se almacenan los campos que el esquema declara; cualquier otro que
+    llegue en el cuerpo ya se ha descartado al validar.
     """
     report = Report(
         timestamp=payload["timestamp"],

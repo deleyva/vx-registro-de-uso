@@ -4,7 +4,7 @@ slug: 20260904-vx-registro-auth
 effort: standard
 effort_source: auto
 phase: complete
-progress: 21/21
+progress: 22/22
 mode: iterate
 started: 2026-09-04T11:20:00Z
 updated: 2026-09-04T18:10:00Z
@@ -12,7 +12,7 @@ principal_stated_goal: "Me piden que ponga algún mecanismo de login en esta app
 principal_stated_goal_source: prompt
 principal_stated_goal_signal: 2
 principal_stated_goal_locked: 2026-09-04T11:20:00Z
-iteration: 4
+iteration: 5
 ---
 
 # ISA — VX Control Center
@@ -88,6 +88,7 @@ desplegado.
 - [x] ISC-19: el administrador puede volver a activar el login, y el panel se cierra otra vez.
 - [x] ISC-20: recién instalado, `vxloginadmin` abre sesión de administración y `vxlogindocente` de lectura.
 - [x] ISC-21: `POST /v1/report` con `etiquetas` las persiste y las devuelve; sin `etiquetas` sigue devolviendo 201.
+- [x] ISC-22: tras eliminar `empresa` y `tipo_verificacion` del esquema, un cliente que aún los envía sigue recibiendo 201 y la respuesta no los contiene.
 
 ### Anti-criteria
 
@@ -141,6 +142,7 @@ desplegado.
 | 2026-09-04 | `POSTGRES_PASSWORD` queda fuera de la generación automática | En un host con el volumen ya inicializado, cambiarla no cambia la contraseña real de Postgres y dejaría la aplicación sin conexión |
 | 2026-09-04 | Claves de fábrica públicas en el repositorio, revirtiendo la generación aleatoria | Decisión explícita del principal tras exponerle el riesgo: el despliegue es la red local del centro y la prioridad es que funcione al instalarlo. `SESSION_SECRET` queda fuera de esa decisión y se sigue generando por servidor, porque publicarlo permitiría falsificar sesiones sin conocer ninguna clave |
 | 2026-09-04 | Quitar el login abre el panel pero nunca `/admin` | Si `/admin` se abriera también, cualquiera podría reactivar el login o cambiar las claves, y no habría forma de volver atrás |
+| 2026-09-05 | Se eliminan `empresa` y `tipo_verificacion` del esquema | Nunca se almacenaron; declararlos solo sugería que hacían algo. `extra="ignore"` sigue aceptando a los clientes que los envían, así que quitarlos no rompe ningún equipo |
 | 2026-09-05 | Las etiquetas se leen sin `sudo`, como el CID | Evita tener que instalar una regla `NOPASSWD` en cada equipo del centro. Si el comando exigiera privilegios, fallaría y el informe llegaría con las etiquetas vacías en vez de bloquearse |
 | 2026-09-05 | Las etiquetas NO caen a stderr cuando stdout viene vacío, al contrario que el CID | El CID sí lo hace y puede acabar guardando un mensaje de error como identificador del equipo; no se replica ese defecto en el campo nuevo |
 | 2026-09-04 | `etiquetas` se almacena como la cadena que devuelve el comando, sin parsear | No pude verificar el formato de salida de `vx-migasfree-tags -g` (el comando no existe en esta máquina). Guardar el texto crudo no inventa una estructura; el panel lo parte por espacios solo para pintarlo |
@@ -189,6 +191,7 @@ este trabajo (0001 y 0002, reglas UP/W) y sigue igual; no se ha tocado.
 | ISC-19 | `test_volver_a_pedir_clave` |
 | ISC-20 | Sondas: `vxloginadmin` da panel 200 y `/admin` 200; `vxlogindocente` da panel 200 y `/admin` 403 |
 | ISC-21 | `POST` real con `"etiquetas":"aula-musica planta-1 windows-dual"` devuelve el campo en la respuesta; un `POST` sin el campo devuelve 201. En Chrome, la columna «Etiquetas» pinta las tres etiquetas y un guion en el equipo que no las envía |
+| ISC-22 | Sonda con el payload de un cliente antiguo (`empresa` + `tipo_verificacion`): `201`, y la respuesta trae solo las ocho claves esperadas. Un `SELECT` sobre `information_schema` confirma que la tabla nunca tuvo esas columnas |
 | Cliente Tauri | `cargo check` en `~/vx-login-app/src-tauri` termina sin errores con la llamada a `vx-migasfree-tags -g` añadida (sin sudo, como el CID) |
 | AC-4 | Sondas contra el servidor vivo, cuatro credenciales: delegada `login 303 / admin 200`, maestra `303 / 200`, profesor `303 / 403`, inválida `401`. `SELECT` sobre `app_settings` devuelve dos filas, ambas `scrypt$…` |
 
