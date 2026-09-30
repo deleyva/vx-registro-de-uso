@@ -32,6 +32,7 @@
   <div class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
     <div class="p-6 border-b border-gray-200">
       <form
+        id="filters-form"
         hx-get="/"
         hx-target="#reports-container"
         hx-swap="innerHTML"
@@ -39,31 +40,18 @@
         hx-include="this"
         class="flex items-center gap-3 flex-wrap"
       >
-        <input type="hidden" name="partial" value="1" />
+        {# El servidor detecta la petición parcial por la cabecera HX-Request; sin
+           `partial=1` en el formulario la URL que HTMX empuja al historial queda
+           limpia y al recargarla se pinta la página entera. #}
+        {% if filters['limit'] %}
+        <input type="hidden" name="limit" value="{{ filters['limit'] }}" />
+        {% endif %}
 
         <div class="flex items-center gap-3">
           <h2 class="text-xl font-bold text-gray-900">Reportes</h2>
         </div>
 
-        <label class="text-sm text-gray-500">
-          Desde
-          <input
-            type="date"
-            name="from"
-            value="{{ filters['from'] }}"
-            class="ml-2 px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-900"
-          />
-        </label>
-
-        <label class="text-sm text-gray-500">
-          Hasta
-          <input
-            type="date"
-            name="to"
-            value="{{ filters['to'] }}"
-            class="ml-2 px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-900"
-          />
-        </label>
+        {% include "partials/daterange_picker.html" %}
 
         <label class="text-sm text-gray-500 flex items-center gap-2">
           <input
@@ -105,10 +93,14 @@
       </form>
     </div>
 
+    {# El refresco periódico lleva los filtros del formulario. Antes pedía
+       `/?partial=1` a secas al cargar y cada 30 s, y eso borraba cualquier
+       filtro o `limit` que hubiera en la URL en el primer refresco. #}
     <div
       id="reports-container"
-      hx-get="/?partial=1"
-      hx-trigger="load, every 30s"
+      hx-get="/"
+      hx-include="#filters-form"
+      hx-trigger="every 30s"
       hx-swap="innerHTML"
     >
       {% include "partials/reports_table.html" %}

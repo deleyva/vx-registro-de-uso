@@ -1,0 +1,216 @@
+{#
+  Calendario de rango: un solo calendario en el que se arrastra sobre los días
+  para elegir el intervalo. Rellena los campos ocultos `from` y `to`
+  (YYYY-MM-DD, ambos inclusive) que ya entendía el servidor, así que el
+  contrato del formulario no cambia: solo cambia cómo se eligen las fechas.
+
+  Sin dependencias: el panel vive en la red del centro y tiene que pintarse
+  sin internet. Las clases de Tailwind que usa el script están aquí, en un
+  fichero .html, para que el compilador las vea.
+#}
+<div id="drp" class="relative">
+  <input type="hidden" name="from" id="drp-from" value="{{ filters['from'] }}" />
+  <input type="hidden" name="to" id="drp-to" value="{{ filters['to'] }}" />
+
+  <button
+    type="button"
+    id="drp-toggle"
+    aria-haspopup="dialog"
+    aria-expanded="false"
+    class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm text-gray-900 hover:bg-gray-50"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    <span id="drp-label">Todas las fechas</span>
+  </button>
+
+  <div
+    id="drp-pop"
+    role="dialog"
+    aria-label="Elegir fechas"
+    class="hidden absolute left-0 top-full mt-2 z-20 w-72 rounded-xl border border-gray-200 bg-white shadow-lg p-3 select-none"
+  >
+    <div class="flex items-center justify-between mb-2">
+      <button type="button" data-nav="-1" aria-label="Mes anterior" class="h-7 w-7 rounded-md hover:bg-gray-100 text-gray-600">‹</button>
+      <div id="drp-month" class="text-sm font-semibold text-gray-900 capitalize"></div>
+      <button type="button" data-nav="1" aria-label="Mes siguiente" class="h-7 w-7 rounded-md hover:bg-gray-100 text-gray-600">›</button>
+    </div>
+
+    <div class="grid grid-cols-7 text-[11px] text-gray-400 text-center mb-1">
+      <span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span>
+    </div>
+
+    <div id="drp-grid" class="grid grid-cols-7 gap-y-0.5" style="touch-action: none"></div>
+
+    <p class="mt-2 text-[11px] text-gray-400">
+      Arrastra para elegir varios días; un clic elige uno. Mayús + clic amplía el rango, también entre meses.
+    </p>
+
+    <div class="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between gap-2">
+      <div class="flex gap-1">
+        <button type="button" data-preset="today" class="px-2 py-1 rounded-md text-xs text-gray-700 hover:bg-gray-100">Hoy</button>
+        <button type="button" data-preset="week" class="px-2 py-1 rounded-md text-xs text-gray-700 hover:bg-gray-100">Esta semana</button>
+      </div>
+      <button type="button" id="drp-clear" class="px-2 py-1 rounded-md text-xs text-red-600 hover:bg-red-50">Borrar fechas</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var root = document.getElementById("drp");
+    if (!root) return;
+    var form = root.closest("form");
+    var inFrom = document.getElementById("drp-from");
+    var inTo = document.getElementById("drp-to");
+    var label = document.getElementById("drp-label");
+    var toggle = document.getElementById("drp-toggle");
+    var pop = document.getElementById("drp-pop");
+    var grid = document.getElementById("drp-grid");
+    var monthEl = document.getElementById("drp-month");
+
+    var MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+
+    function pad(n) { return (n < 10 ? "0" : "") + n; }
+    function iso(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+    function fromIso(s) {
+      if (!s) return null;
+      var p = s.split("-").map(Number);
+      return new Date(p[0], p[1] - 1, p[2]);
+    }
+    function fmt(d) { return d.getDate() + " " + MONTHS[d.getMonth()].slice(0, 3) + " " + d.getFullYear(); }
+    function ordered(a, b) { return a <= b ? { from: a, to: b } : { from: b, to: a }; }
+
+    var sel = { from: fromIso(inFrom.value), to: fromIso(inTo.value) };
+    if (sel.from && !sel.to) sel.to = sel.from;
+    if (sel.to && !sel.from) sel.from = sel.to;
+    var base = sel.from || new Date();
+    var view = new Date(base.getFullYear(), base.getMonth(), 1);
+    var anchor = null;
+    var dragging = false;
+    var preview = null;
+
+    function updateLabel() {
+      if (!sel.from) { label.textContent = "Todas las fechas"; return; }
+      label.textContent = iso(sel.from) === iso(sel.to) ? fmt(sel.from) : fmt(sel.from) + " – " + fmt(sel.to);
+    }
+
+    function render() {
+      monthEl.textContent = MONTHS[view.getMonth()] + " " + view.getFullYear();
+      grid.innerHTML = "";
+      var range = preview || sel;
+      var rFrom = range.from ? iso(range.from) : null;
+      var rTo = range.to ? iso(range.to) : null;
+      var today = iso(new Date());
+      var offset = (view.getDay() + 6) % 7; // semana que empieza en lunes
+      for (var i = 0; i < 42; i++) {
+        var d = new Date(view.getFullYear(), view.getMonth(), 1 - offset + i);
+        var k = iso(d);
+        var outside = d.getMonth() !== view.getMonth();
+        var isStart = rFrom !== null && k === rFrom;
+        var isEnd = rTo !== null && k === rTo;
+        var inside = rFrom !== null && rTo !== null && k > rFrom && k < rTo;
+        var cls = "h-8 w-full text-sm cursor-pointer ";
+        if (isStart || isEnd) {
+          cls += "bg-blue-600 text-white font-semibold ";
+          cls += isStart && isEnd ? "rounded-md" : isStart ? "rounded-l-md" : "rounded-r-md";
+        } else if (inside) {
+          cls += "bg-blue-100 text-blue-900";
+        } else {
+          cls += "rounded-md hover:bg-gray-100 " + (outside ? "text-gray-300" : "text-gray-700");
+          if (k === today) cls += " font-bold text-blue-600";
+        }
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.dataset.day = k;
+        btn.textContent = String(d.getDate());
+        btn.className = cls;
+        grid.appendChild(btn);
+      }
+    }
+
+    function open() { pop.classList.remove("hidden"); toggle.setAttribute("aria-expanded", "true"); render(); }
+    function close() { pop.classList.add("hidden"); toggle.setAttribute("aria-expanded", "false"); }
+
+    function commit() {
+      inFrom.value = sel.from ? iso(sel.from) : "";
+      inTo.value = sel.to ? iso(sel.to) : "";
+      updateLabel();
+      close();
+      if (form) form.requestSubmit();
+    }
+
+    function dayAt(x, y) {
+      var el = document.elementFromPoint(x, y);
+      var b = el && el.closest ? el.closest("[data-day]") : null;
+      return b && grid.contains(b) ? fromIso(b.dataset.day) : null;
+    }
+
+    grid.addEventListener("pointerdown", function (e) {
+      var d = dayAt(e.clientX, e.clientY);
+      if (!d) return;
+      e.preventDefault();
+      if (e.shiftKey && sel.from) {
+        anchor = sel.from;
+      } else {
+        anchor = d;
+      }
+      dragging = true;
+      preview = ordered(anchor, d);
+      render();
+    });
+    document.addEventListener("pointermove", function (e) {
+      if (!dragging) return;
+      var d = dayAt(e.clientX, e.clientY);
+      if (!d) return;
+      var next = ordered(anchor, d);
+      if (preview && iso(next.from) === iso(preview.from) && iso(next.to) === iso(preview.to)) return;
+      preview = next;
+      render();
+    });
+    document.addEventListener("pointerup", function () {
+      if (!dragging) return;
+      dragging = false;
+      sel = preview;
+      preview = null;
+      commit();
+    });
+
+    pop.querySelectorAll("[data-nav]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        view = new Date(view.getFullYear(), view.getMonth() + Number(b.dataset.nav), 1);
+        render();
+      });
+    });
+    pop.querySelectorAll("[data-preset]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var t = new Date();
+        t = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+        if (b.dataset.preset === "today") {
+          sel = { from: t, to: t };
+        } else {
+          var monday = new Date(t.getFullYear(), t.getMonth(), t.getDate() - ((t.getDay() + 6) % 7));
+          sel = { from: monday, to: t };
+        }
+        view = new Date(sel.from.getFullYear(), sel.from.getMonth(), 1);
+        commit();
+      });
+    });
+    document.getElementById("drp-clear").addEventListener("click", function () {
+      sel = { from: null, to: null };
+      commit();
+    });
+
+    toggle.addEventListener("click", function () {
+      if (pop.classList.contains("hidden")) open(); else close();
+    });
+    document.addEventListener("click", function (e) {
+      if (!root.contains(e.target)) close();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") close();
+    });
+
+    updateLabel();
+    render();
+  })();
+</script>

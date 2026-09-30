@@ -234,3 +234,10 @@ documentos paralelos, y rellena su sección `## Verification` con la evidencia r
 - **2026-09-04** (tarde): claves de fábrica públicas, interruptor para quitar el login, y campo `etiquetas` en los informes — el cliente Tauri las obtiene con `vx-migasfree-tags -g`, sin sudo. `etiquetas` es una ADICIÓN al contrato `/v1/report`, aprobada explícitamente; los tests de paridad se actualizaron para incluirla.
 - **2026-09-04**: Autenticación de sesión con tres llaves (acceso, administración delegada, llave maestra). Se cierran los GET de `/v1/report*`; la ingesta sigue abierta. Se añade `ISA.md`. Se quitan de `config.py` y `docker-compose.yml` unas IP privadas escritas en claro, que **siguen en el historial de git** porque el repo es público.
 - **2026-04-09**: Full rewrite from TypeScript (NestJS 10 + Next.js 15 + Prisma 6) to Python (FastAPI + SQLAlchemy 2.0 + Jinja2/HTMX). Old history and code are recoverable via git tag `pre-python-rewrite`.
+
+## Panel web: filtros y refresco (2026-09-30)
+
+- **El panel (`GET /`) filtra el rango de fechas en SQL con `find_for_panel`; `/v1/report` sigue con `find_all`** (Python tras el LIMIT, por paridad). No unifiques los dos: el filtro de la API es contrato, el del panel es utilidad. Los días de `from`/`to` son Europe/Madrid, `to` inclusive.
+- **El contenedor de la tabla se refresca con `hx-include="#filters-form"` y sin disparo en `load`.** El bug original era exactamente ese `load`: pedía `/?partial=1` sin parámetros medio segundo después de pintar la página y borraba `?limit=500` y cualquier filtro. El formulario ya no lleva `partial=1`; el servidor detecta el parcial por la cabecera `HX-Request`.
+- **El calendario de rango es vanilla** (`partials/daterange_picker.html`): sus clases de Tailwind viven en ese `.html` para que el compilador las vea. Tras tocarlo, recompila `tailwind.css` (comando en el README) y commitea el resultado.
+- **La suite trunca `reports` en la base de desarrollo (puerto 5433).** No la lances mientras verificas a mano contra un servidor local sembrado en esa misma base.

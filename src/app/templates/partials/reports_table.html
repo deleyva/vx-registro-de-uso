@@ -1,3 +1,17 @@
+<div class="px-4 py-2 border-b border-gray-100 text-xs text-gray-500 flex items-center gap-3 flex-wrap">
+  <span>
+    {{ reports|length }} informe{% if reports|length != 1 %}s{% endif %}{% if has_range %} en el rango elegido{% else %} (los más recientes){% endif %}
+  </span>
+  {% if page.truncated and has_range %}
+  <span class="text-amber-700">
+    El rango tiene {{ page.total_in_range }} informes y solo se muestran los {{ page.limit }} más recientes. Acorta el rango para verlos todos.
+  </span>
+  {% elif page.truncated %}
+  <span>
+    de {{ page.total_in_range }} en total · elige fechas en el calendario para ver días anteriores
+  </span>
+  {% endif %}
+</div>
 <div class="overflow-x-auto">
   <table class="w-full text-sm">
     <thead class="bg-gray-50">

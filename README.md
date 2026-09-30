@@ -125,6 +125,19 @@ Ver `.env.example`.
 | `COOKIE_SECURE` | `false` | Ponlo a `true` cuando el panel vaya por HTTPS. |
 | `INGEST_TOKEN` | *(vacío)* | Si se rellena, `POST /v1/report` exige la cabecera `X-VX-Token`. |
 
+## Panel web
+
+La tabla del panel enseña por defecto los **200 informes más recientes** y se refresca sola
+cada 30 s conservando los filtros que tengas puestos.
+
+- **Fechas.** Un solo calendario: arrastra sobre los días para elegir un rango, haz clic en
+  uno para ver solo ese día, y Mayús + clic amplía el rango (también entre meses). Al soltar
+  se filtra solo. Los días son en hora de Madrid y ambos extremos entran. Con un rango
+  elegido se muestran hasta 2000 informes; si hay más, la tabla lo avisa con el total.
+- **URL compartible.** Los filtros van en la URL (`/?from=2026-09-22&to=2026-09-25`), así que
+  recargar o pasar el enlace mantiene la vista. `?limit=N` (máximo 5000) también se respeta.
+- **Solo con errores**, **componente** y **operativo** se aplican igual que en la API.
+
 ## Acceso al panel
 
 **Claves de fábrica** (públicas a propósito: esto va en la red local del centro y
@@ -374,7 +387,7 @@ es lo que el workflow usa para etiquetar la imagen y nombrar la Release.
 │   │   └── reports.py       # CreateReportRequest + ReportResponse
 │   ├── services/
 │   │   ├── auth.py          # verificación, rotación y sellos de sesión
-│   │   └── reports.py       # create, find_all (filtros en memoria), find_one
+│   │   └── reports.py       # create, find_all (API, filtros en memoria), find_for_panel (panel, rango en SQL), find_one
 │   ├── routers/
 │   │   ├── auth.py          # /login, /logout, /admin
 │   │   ├── health.py        # GET /health

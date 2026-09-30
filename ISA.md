@@ -1,18 +1,18 @@
 ---
-task: "Login de dos niveles para el panel VX"
-slug: 20260904-vx-registro-auth
+task: "Filtro de fechas real y calendario de rango en el panel VX"
+slug: 20260930-vx-registro-filtros
 effort: standard
 effort_source: auto
-phase: complete
-progress: 22/22
+phase: verify
+progress: 35/35
 mode: iterate
-started: 2026-09-04T11:20:00Z
-updated: 2026-09-04T18:10:00Z
-principal_stated_goal: "Me piden que ponga algún mecanismo de login en esta app /Users/deleyva/vx-registro-de-uso. Un contraseña genérica sin más, editable. Tiene el peligro de que, si todos los profes la saben, que alguno la cambie. ¿Hay un sweet spot entre usuario-contraseña y contraseña-editable-en-ui?"
+started: 2026-09-30T12:40:00Z
+updated: 2026-09-30T15:10:00Z
+principal_stated_goal: "Querría que el filtro funcionara. Actualmente es el limit 500, no me sigue mostrando más allá del día de hoy. En cuanto a los filtros de arriba, me gustaría que, en un solo calendario, se pudieran seleccionar los días concretos arrastrando."
 principal_stated_goal_source: prompt
 principal_stated_goal_signal: 2
-principal_stated_goal_locked: 2026-09-04T11:20:00Z
-iteration: 5
+principal_stated_goal_locked: 2026-09-30T12:40:00Z
+iteration: 6
 ---
 
 # ISA — VX Control Center
@@ -97,6 +97,32 @@ desplegado.
 - [x] AC-2: NO se rompe ningún campo ni código de estado de `/v1/report*` (paridad NestJS intacta).
 - [x] AC-3: NO aparece ninguna contraseña, ni en claro ni hasheada, en logs, plantillas o este repositorio.
 
+### Iteración 6 — filtro de fechas y calendario de rango (2026-09-30)
+
+Contexto medido antes de tocar nada: la base de datos de producción tiene 915 informes desde el
+2026-09-23 09:00Z (el `.deb` instalado ese día creó el volumen `vx-registro_postgres_data`
+nuevo y dejó huérfano `vx-registro-de-uso_postgres_data`, del 2026-04-09, con el histórico).
+El panel pide las 200 últimas filas y filtra después; el contenedor de la tabla vuelve a pedir
+`/?partial=1` sin filtros ni límite al cargar y cada 30 s, así que `?limit=500` y cualquier
+filtro se pierden en el primer refresco.
+
+- [x] ISC-23: `GET /` con `from`/`to` (YYYY-MM-DD) devuelve exactamente los informes cuyo `timestamp` cae en esos días, aunque existan más de 200 informes más recientes fuera del rango. Falsador: 201 informes de hoy + 1 de hace tres días; filtrar el día antiguo devuelve ese 1.
+- [x] ISC-24: Los límites del día son en Europe/Madrid, ambos extremos inclusive: un informe a las 23:30 de D (21:30Z) entra en `to=D`; uno a las 00:30 de D+1 (22:30Z de D) no entra.
+- [x] ISC-25: El refresco periódico de la tabla lleva los mismos parámetros que el formulario: con un rango aplicado, 31 s después la tabla sigue filtrada.
+- [x] ISC-26: `?limit=500` en la URL se respeta y sobrevive al refresco: la última fila no es de hoy.
+- [x] ISC-27: Un solo calendario sustituye a Desde/Hasta: arrastrar sobre los días selecciona el rango, rellena `from`/`to` y filtra la tabla sin pulsar Filtrar.
+- [x] ISC-28: Un clic selecciona un solo día; «Borrar fechas» quita el rango y vuelve a los últimos 200.
+- [x] ISC-29: La URL tras filtrar es limpia y recargable: `/?from=…&to=…`, sin `partial=1`; al recargarla se pinta la página completa con el calendario mostrando el rango.
+- [x] ISC-30: La tabla dice cuántos informes hay en el rango y si se está truncando («mostrando N de M»).
+- [x] ISC-31: El calendario no carga nada de internet: cero URLs externas en plantillas y estáticos (el panel vive en la red del centro).
+- [x] ISC-32: `/v1/report*` no cambia: `tests/test_reports_v1.py` intacto y en verde.
+
+Anti-claims de esta iteración:
+
+- [x] AC-5: NO se toca el filtrado de `/v1/report` (contrato congelado con el cliente `.deb`).
+- [x] AC-6: NO se añade ninguna dependencia JavaScript ni CSS externa; el calendario es vanilla y se sirve desde `/static`.
+- [x] AC-7: NO hay migración ni cambio de esquema; el volumen antiguo NO se toca hasta que Jesús decida qué hacer con él.
+
 ## Test Strategy
 
 | ISC | Probe |
@@ -146,6 +172,12 @@ desplegado.
 | 2026-09-05 | Las etiquetas se leen sin `sudo`, como el CID | Evita tener que instalar una regla `NOPASSWD` en cada equipo del centro. Si el comando exigiera privilegios, fallaría y el informe llegaría con las etiquetas vacías en vez de bloquearse |
 | 2026-09-05 | Las etiquetas NO caen a stderr cuando stdout viene vacío, al contrario que el CID | El CID sí lo hace y puede acabar guardando un mensaje de error como identificador del equipo; no se replica ese defecto en el campo nuevo |
 | 2026-09-04 | `etiquetas` se almacena como la cadena que devuelve el comando, sin parsear | No pude verificar el formato de salida de `vx-migasfree-tags -g` (el comando no existe en esta máquina). Guardar el texto crudo no inventa una estructura; el panel lo parte por espacios solo para pintarlo |
+| 2026-09-30 | El rango de fechas del panel se resuelve en SQL (`find_for_panel`), `/v1/report` sigue filtrando en Python tras el LIMIT | El panel no tiene contrato de paridad; la API sí. Filtrar tras cortar hacía que «Desde/Hasta» solo viera las 200 filas más recientes |
+| 2026-09-30 | Los días del calendario se interpretan en Europe/Madrid, `to` inclusive | Un profesor elige «el día 24», no «desde las 00:00 UTC». El filtro antiguo excluía el propio día `to` y estaba desplazado dos horas |
+| 2026-09-30 | Sin rango, 200 filas; con rango, hasta 2000, con aviso si se trunca | Sin rango el panel es «lo último», y el refresco de 30 s debe ser barato; con rango la pregunta es «qué pasó esos días», y truncar en 200 sin avisar es mentir |
+| 2026-09-30 | Calendario vanilla en un partial, sin CDN ni librería | El panel vive en la red del centro y tiene que pintarse sin internet; una librería añade una dependencia por un widget de 150 líneas |
+| 2026-09-30 | El refresco periódico incluye el formulario (`hx-include`) y ya no dispara en `load` | Era la causa de que `?limit=500` y cualquier filtro se perdieran: el contenedor pedía `/?partial=1` a secas al cargar y cada 30 s |
+| 2026-09-30 | El volumen antiguo `vx-registro-de-uso_postgres_data` NO se toca en esta iteración | Recuperar el histórico exige parar el stack o restaurar sobre la base viva; es decisión de Jesús, no mía |
 
 ## Changelog
 
@@ -160,6 +192,12 @@ desplegado.
 
 - **2026-09-04** — conjectured: unas claves por defecto públicas en un repositorio abierto son un riesgo que no debe asumirse. refuted by: el principal, informado del riesgo, lo asume explícitamente — el panel vive en la red local del centro y la prioridad es que funcione al instalarlo. learned: el modelo de amenaza aquí no es internet, es el aula; y una clave que nadie sabe dónde encontrar produce llamadas al administrador, no seguridad. criterion now: ISC-20 exige que las claves documentadas funcionen recién instalado, y el interruptor de login (ISC-17..ISC-19) hace explícito que se puede prescindir de ellas.
 - **2026-09-04** — conjectured: el contrato `/v1/report` está congelado y no admite campos nuevos. refuted by: el propio autor del cliente pide el campo `etiquetas`, y el único consumidor de la respuesta no existe (la app Tauri solo hace POST). learned: lo congelado es lo que los equipos ya desplegados ENVÍAN, no lo que el servidor devuelve. criterion now: ISC-21 exige que un POST sin `etiquetas` siga dando 201, que es la parte del contrato que sí importa.
+
+## Changelog (iteración 6)
+
+- **2026-09-30** — conjectured: el panel solo enseña dos días porque el servidor borra o rota registros. refuted by: `SELECT count(*), min("createdAt")` en producción da 915 filas desde el 2026-09-23 09:00Z, y el volumen `vx-registro-de-uso_postgres_data` (2026-04-09) sigue existiendo junto al nuevo `vx-registro_postgres_data` (2026-09-23 10:31, misma hora que `apt install vx-registro-de-uso` en `dpkg.log`). learned: el `.deb` levanta el stack desde `/opt/vx-registro`, y Compose nombra los volúmenes por el directorio, así que la instalación creó una base vacía y dejó la antigua huérfana. criterion now: AC-7 deja el volumen antiguo intacto hasta que Jesús decida; la recuperación es una tarea aparte.
+- **2026-09-30** — conjectured: `?limit=500` no funciona en el servidor. refuted by: `/?limit=500&partial=1` (sin HTMX) devuelve filas del 28/09. learned: el contenedor de la tabla tenía `hx-get="/?partial=1"` con `hx-trigger="load, every 30s"`, y ese primer `load` sustituía las 500 filas por las 200 por defecto medio segundo después de pintarse. criterion now: ISC-25 e ISC-26 exigen que el refresco lleve el formulario y que `limit` sobreviva 31 s.
+- **2026-09-30** — gotcha: la suite de tests TRUNCA `reports` en la base de desarrollo (5433); lanzarla con el servidor local sembrado apuntando a la misma base deja el panel vacío a media verificación. Sembrar después de los tests, no antes.
 
 ## Verification
 
@@ -229,3 +267,21 @@ arrancar Uvicorn: la migración `0003` se aplica sola al desplegar, sin paso man
 - Los cambios están **sin commitear**: la revisión del diff y el commit son suyos.
 - El despliegue exige fijar `ADMIN_PASSWORD` y `SESSION_SECRET` en el `.env` de
   producción y aplicar la migración `0003` antes de arrancar la imagen nueva.
+
+### Iteración 6 — evidencia (2026-09-30)
+
+| Criterio | Evidencia |
+|---|---|
+| ISC-23 | `test_rango_de_fechas_alcanza_mas_alla_de_las_200_ultimas`: 201 informes de hoy + 1 del 27; `from=to=2026-09-27` devuelve 1 fila con `VIEJO`; sin rango, 200 filas y `VIEJO` ausente |
+| ISC-24 | `test_limites_del_dia_en_hora_de_madrid`: 21:30Z del 24 entra en `to=24`; 22:30Z del 24 (00:30 Madrid del 25) entra solo en `from=25` |
+| ISC-25 | Chrome real en `127.0.0.1:3001/?from=2026-09-22&to=2026-09-25`: 35 s después la tabla sigue en «100 informes en el rango elegido»; el log de uvicorn muestra la petición periódica `GET /?from=2026-09-22&to=2026-09-25&component=&onlyOperativo=` |
+| ISC-26 | Chrome real en `/?limit=500`: a los 34 s, «500 informes (los más recientes) · de 580 en total» y filas `D19-*` (día 19) presentes; log: `GET /?limit=500&from=&to=…` |
+| ISC-27 | Chrome real: `left_click_drag` del 22 al 25 en el calendario → etiqueta «22 sep 2026 – 25 sep 2026», tabla con 100 informes (4 días × 25), sin pulsar Filtrar |
+| ISC-28 | Chrome real: clic en el 24 → «24 sep 2026», 25 informes, URL `/?from=2026-09-24&to=2026-09-24`; «Borrar fechas» → «Todas las fechas», 200 informes |
+| ISC-29 | Chrome real: navegar a `/?from=2026-09-22&to=2026-09-25` pinta la página entera con el botón «22 sep 2026 – 25 sep 2026» y el rango resaltado en el calendario; la URL empujada por HTMX no lleva `partial=1` (`test_pagina_completa_y_refresco_conservan_los_filtros`) |
+| ISC-30 | `test_truncado_avisa_con_el_total_del_rango`: con `limit=2` y 3 informes, «El rango tiene 3 informes y solo se muestran los 2 más recientes» |
+| ISC-31 | `rg "https?://" src/app/templates src/app/static/css/tailwind.src.css` solo devuelve el `xmlns` de los SVG y el enlace a GitHub de la cabecera |
+| ISC-32 | `tests/test_reports_v1.py` sin cambios (`git status`); suite completa 51/51 en verde |
+| AC-5 | `git diff src/app/services/reports.py`: `find_all` intacto; lo nuevo es `find_for_panel` |
+| AC-6 | `daterange_picker.html` no tiene `<script src>` ni `<link>`; único JS externo del panel sigue siendo `/static/vendor/htmx.min.js` |
+| AC-7 | Sin ficheros nuevos en `migrations/`; en el servidor solo se ejecutaron `SELECT`, `docker inspect`, `docker volume ls` y lecturas de logs |
