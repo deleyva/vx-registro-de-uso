@@ -147,3 +147,17 @@ async def test_pagina_completa_y_refresco_conservan_los_filtros(
     res = await client.get("/?from=2026-09-24&to=2026-09-26", headers=HX)
     assert "<form" not in res.text
     assert "X" in res.text
+
+
+@pytest.mark.asyncio
+async def test_estaticos_llevan_huella_de_contenido(client: AsyncClient) -> None:
+    """La hoja de estilos y HTMX se piden con `?v=<hash>` del contenido, para que
+    un despliegue no deje al navegador con la copia vieja en caché (2026-10-01:
+    el calendario salía sin estilos por eso). La URL versionada sirve el fichero."""
+    html = (await client.get("/")).text
+    urls = re.findall(r'(?:href|src)="(/static/[^"]+)"', html)
+    assert any(u.startswith("/static/css/tailwind.css?v=") for u in urls), urls
+    assert any(u.startswith("/static/vendor/htmx.min.js?v=") for u in urls), urls
+    for url in urls:
+        assert re.search(r"\?v=[0-9a-f]{10}$", url), url
+        assert (await client.get(url)).status_code == 200, url

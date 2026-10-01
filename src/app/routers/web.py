@@ -18,6 +18,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.assets import static_url
 from app.core.config import settings
 from app.db.session import get_db
 from app.routers.reports_v1 import _parse_tri_bool
@@ -29,6 +30,7 @@ router = APIRouter(tags=["web"])
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+templates.env.globals["static_url"] = static_url
 
 
 def _format_es_datetime(dt: datetime) -> str:

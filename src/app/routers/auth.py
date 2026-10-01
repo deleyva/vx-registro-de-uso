@@ -16,6 +16,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import authguard
+from app.core.assets import static_url
 from app.core.config import settings
 from app.db.session import get_db
 from app.services import auth as auth_service
@@ -24,6 +25,7 @@ router = APIRouter(tags=["auth"])
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+templates.env.globals["static_url"] = static_url
 
 MIN_PASSWORD_LENGTH = 8
 
