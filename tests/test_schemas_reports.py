@@ -52,6 +52,7 @@ def test_response_serialization_uses_camel_keys() -> None:
         "migasfreeCid",
         "usuarioGrafico",
         "etiquetas",
+        "hostname",
         "verificacionEquipos",
         "resumen",
         "createdAt",

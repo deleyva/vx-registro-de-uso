@@ -22,6 +22,7 @@ EXPECTED_RESPONSE_KEYS = {
     "migasfreeCid",
     "usuarioGrafico",
     "etiquetas",
+    "hostname",
     "verificacionEquipos",
     "resumen",
     "createdAt",

@@ -161,3 +161,25 @@ async def test_estaticos_llevan_huella_de_contenido(client: AsyncClient) -> None
     for url in urls:
         assert re.search(r"\?v=[0-9a-f]{10}$", url), url
         assert (await client.get(url)).status_code == 200, url
+
+
+@pytest.mark.asyncio
+async def test_hostname_se_guarda_y_el_panel_lo_ensena(
+    client: AsyncClient, report_payload: dict
+) -> None:
+    """Petición del IES Goya (soporte #10729): ver el nombre del equipo. Lo envían
+    los clientes 1.0.28+; los anteriores siguen llegando sin él y el panel cae al
+    CID."""
+    con = copy.deepcopy(report_payload) | {"hostname": "a12-pc07"}
+    res = await client.post("/v1/report", json=con)
+    assert res.status_code == 201, res.text
+    assert res.json()["hostname"] == "a12-pc07"
+
+    sin = copy.deepcopy(report_payload) | {"migasfree_cid": "SIN-NOMBRE"}
+    res = await client.post("/v1/report", json=sin)
+    assert res.status_code == 201, res.text
+    assert res.json()["hostname"] is None
+
+    html = (await client.get("/", headers=HX)).text
+    assert '<div class="font-medium">a12-pc07</div>' in html
+    assert "SIN-NOMBRE" in html

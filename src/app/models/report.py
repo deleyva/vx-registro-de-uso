@@ -30,6 +30,9 @@ class Report(Base):
     # equipo. Nullable a propósito: los clientes instalados antes de septiembre
     # de 2026 no las envían y deben seguir pudiendo reportar.
     etiquetas: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Nombre del equipo (`hostname`). Nullable por lo mismo que `etiquetas`:
+    # los clientes anteriores a la 1.0.28 no lo envían.
+    hostname: Mapped[str | None] = mapped_column(String, nullable=True)
     verificacion_equipos: Mapped[dict[str, Any]] = mapped_column(
         "verificacionEquipos", JSONB, nullable=False
     )
