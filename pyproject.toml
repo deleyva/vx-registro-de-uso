@@ -1,6 +1,6 @@
 [project]
 name = "vx-registro-de-uso"
-version = "2.3.1"
+version = "2.4.0"
 description = "VX Control Center API — Python rewrite (FastAPI + SQLAlchemy + HTMX)"
 requires-python = ">=3.12,<3.13"
 license = { text = "MIT" }
