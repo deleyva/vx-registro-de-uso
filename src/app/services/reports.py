@@ -182,6 +182,61 @@ async def find_for_panel(
     return PanelPage(reports=kept, total_in_range=total, limit=take)
 
 
+EXPORT_MAX_ROWS = 20000
+
+
+@dataclass
+class ExportResult:
+    """Filas a exportar, o el total del rango si supera el tope."""
+
+    reports: list[Report]
+    total_in_range: int
+
+    @property
+    def too_many(self) -> bool:
+        return self.total_in_range > EXPORT_MAX_ROWS
+
+
+async def find_for_export(
+    db: AsyncSession,
+    *,
+    start: datetime | None,
+    end: datetime | None,
+    filters: ReportFilters | None = None,
+) -> ExportResult:
+    """Todas las filas del rango que pasan los filtros, sin el límite del panel.
+
+    El panel corta en 200 (o 2000 con rango) para pintar rápido; un fichero
+    exportado con ese corte sería incompleto sin decirlo. Aquí no hay corte: si
+    el rango tiene más de ``EXPORT_MAX_ROWS`` informes no se devuelve nada y el
+    router responde con un error que pide acortarlo.
+    """
+    filters = filters or ReportFilters()
+    conditions = []
+    if start is not None:
+        conditions.append(Report.timestamp >= start)
+    if end is not None:
+        conditions.append(Report.timestamp < end)
+
+    count_stmt = select(func.count()).select_from(Report).where(*conditions)
+    total = int((await db.execute(count_stmt)).scalar_one())
+    if total > EXPORT_MAX_ROWS:
+        return ExportResult(reports=[], total_in_range=total)
+
+    stmt = (
+        select(Report)
+        .where(*conditions)
+        .order_by(Report.timestamp.desc(), Report.created_at.desc())
+    )
+    rows = list((await db.execute(stmt)).scalars().all())
+    jsonb_only = ReportFilters(
+        only_errors=filters.only_errors,
+        component=filters.component,
+        only_operativo=filters.only_operativo,
+    )
+    return ExportResult(reports=[r for r in rows if _passes_filters(r, jsonb_only)], total_in_range=total)
+
+
 async def find_one(db: AsyncSession, report_id: str) -> Report | None:
     stmt = select(Report).where(Report.id == report_id)
     result = await db.execute(stmt)

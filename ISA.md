@@ -4,7 +4,7 @@ slug: 20260930-vx-registro-filtros
 effort: standard
 effort_source: auto
 phase: verify
-progress: 35/35
+progress: 43/44
 mode: iterate
 started: 2026-09-30T12:40:00Z
 updated: 2026-09-30T15:10:00Z
@@ -12,7 +12,7 @@ principal_stated_goal: "Querría que el filtro funcionara. Actualmente es el lim
 principal_stated_goal_source: prompt
 principal_stated_goal_signal: 2
 principal_stated_goal_locked: 2026-09-30T12:40:00Z
-iteration: 6
+iteration: 7
 ---
 
 # ISA — VX Control Center
@@ -123,6 +123,23 @@ Anti-claims de esta iteración:
 - [x] AC-6: NO se añade ninguna dependencia JavaScript ni CSS externa; el calendario es vanilla y se sirve desde `/static`.
 - [x] AC-7: NO hay migración ni cambio de esquema; el volumen antiguo NO se toca hasta que Jesús decida qué hacer con él.
 
+### Iteración 7 — exportar a CSV desde la cabecera de la tabla (2026-10-15)
+
+Objetivo literal: «Quiero poner un botón a la derecha de la tabla, arriba, en la cabecera de la tabla, para poder exportar los datos». Decisión: filtrar y luego exportar (no página aparte ni pestaña de informes); dos modos, por informe y por fallo; CSV con BOM y `;`.
+
+- [x] ISC-33: La cabecera de la tabla tiene, a la derecha, dos botones de exportación («Por informe» y «Por fallo») cuyo enlace lleva exactamente los filtros aplicados (`from`, `to`, `onlyErrors`, `component`, `onlyOperativo`). Falsador: con un rango y «Solo con errores», el `href` contiene esos parámetros.
+- [x] ISC-34: `GET /export.csv?mode=informes` devuelve `text/csv` con BOM UTF-8, separador `;`, `Content-Disposition: attachment` y una fila por informe que pase los filtros; incluye una columna con los problemas de cada informe.
+- [x] ISC-35: `GET /export.csv?mode=fallos` devuelve una fila por componente defectuoso (estado distinto de `correcto` y `no_verificado`) con su `problema`; con `component=X` solo salen los fallos de X.
+- [x] ISC-36: La exportación no se recorta en silencio al límite del panel: con 201 informes sin rango, el CSV trae los 201 aunque la tabla enseñe 200. Si el rango supera el tope (`EXPORT_MAX_ROWS`), responde 422 con un mensaje que pide acortar el rango, nunca un fichero incompleto.
+- [x] ISC-37: Sin sesión, `/export.csv` no entrega datos (303 a `/login`).
+- [x] ISC-38: Las celdas que empiezan por `=`, `+`, `-` o `@` salen neutralizadas (prefijo `'`), para que un `problema` escrito por un usuario no se ejecute como fórmula en la hoja de cálculo.
+- [ ] ISC-39: En un navegador real, pulsar «Por fallo» con filtros aplicados descarga un CSV que abre con acentos correctos.
+
+Anti-claims de esta iteración:
+
+- [x] AC-8: NO se toca `/v1/report*` ni `find_all` (contrato congelado).
+- [x] AC-9: NO se añade dependencia nueva (CSV con la biblioteca estándar) ni migración.
+
 ## Test Strategy
 
 | ISC | Probe |
@@ -201,6 +218,22 @@ Anti-claims de esta iteración:
 - **2026-09-30** — gotcha: la suite de tests TRUNCA `reports` en la base de desarrollo (5433); lanzarla con el servidor local sembrado apuntando a la misma base deja el panel vacío a media verificación. Sembrar después de los tests, no antes.
 
 ## Verification
+
+### Iteración 7 — exportación CSV (2026-10-15)
+
+Suite completa: **60 pasan** (`uv run pytest -q`), 7 nuevas en `tests/test_export.py`. `ruff check src/ tests/` limpio.
+
+| ISC | Evidencia |
+|-----|-----------|
+| ISC-33 | `test_botones_llevan_los_filtros_aplicados`; Chrome real en `/?from=2026-10-11&to=2026-10-16&onlyErrors=true`: «Exportar CSV: Por informe · Por fallo» a la derecha de la cabecera de la tabla |
+| ISC-34 | `test_csv_por_informe`: BOM, `;`, `attachment`, columna «Problemas» = `Ratón: no responde` |
+| ISC-35 | `test_csv_por_fallo_y_filtro_de_componente`; en Chrome, el enlace «Por fallo» devuelve 4 filas (3 teclado, 1 ratón) con su problema, los dos informes sin fallo fuera |
+| ISC-36 | `test_no_se_recorta_al_limite_del_panel`: 201 filas en el CSV con la tabla en 200; con tope bajado, 422 y el panel cambia los botones por «Acorta el rango para exportar» |
+| ISC-37 | `test_sin_sesion_no_exporta`: 303 a `/login` |
+| ISC-38 | `test_neutraliza_formulas`: `@alumno` → `'@alumno`, `=HYPERLINK(…)` → `'=…` |
+| ISC-39 | **Parcial**: en Chrome, `fetch` del `href` del botón devuelve 200, bytes `EF BB BF` y «aula-música», «tecla ñ» intactos. No se pulsó el botón para guardar el fichero ni se abrió en LibreOffice/Excel |
+| AC-8 | `git diff` no toca `routers/reports_v1.py` ni `find_all` |
+| AC-9 | Solo `csv` de la biblioteca estándar; sin cambios en `pyproject.toml` ni en `migrations/` |
 
 Suite completa: **39 pasan** (16 previas sin tocar + 23 nuevas), `uv run pytest -q`.
 Lint: `uv run ruff check src/ tests/` limpio. `migrations/` seguía en rojo antes de

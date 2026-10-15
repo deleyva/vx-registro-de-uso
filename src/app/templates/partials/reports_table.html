@@ -11,6 +11,26 @@
     de {{ page.total_in_range }} en total · elige fechas en el calendario para ver días anteriores
   </span>
   {% endif %}
+  {# Exporta con los filtros aplicados y sin el corte de filas de la tabla:
+     lo que sale es todo el rango, no solo las filas pintadas. #}
+  <div class="ml-auto flex items-center gap-2" id="export-buttons">
+    <span class="text-gray-500">Exportar CSV:</span>
+    {% if page.total_in_range > export_max %}
+      <span class="text-amber-700" title="El máximo exportable son {{ export_max }} informes">Acorta el rango para exportar</span>
+    {% else %}
+      {% for mode, label, hint in [("informes", "Por informe", "Una fila por informe, con los problemas de cada uno"), ("fallos", "Por fallo", "Una fila por componente defectuoso, con su problema")] %}
+        <a
+          href="/export.csv?mode={{ mode }}{% if export_query %}&amp;{{ export_query }}{% endif %}"
+          download
+          title="{{ hint }} · con los filtros aplicados"
+          class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          {{ label }}
+        </a>
+      {% endfor %}
+    {% endif %}
+  </div>
 </div>
 <div class="overflow-x-auto">
   <table class="w-full text-sm">

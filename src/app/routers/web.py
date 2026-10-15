@@ -11,10 +11,11 @@ from __future__ import annotations
 import re
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
+from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,6 +24,7 @@ from app.core.config import settings
 from app.db.session import get_db
 from app.routers.reports_v1 import _parse_tri_bool
 from app.schemas.reports import ReportResponse
+from app.services import csv_export
 from app.services import reports as reports_service
 from app.services.reports import ReportFilters
 
@@ -166,5 +168,79 @@ async def index(
             "component": component or "",
             "onlyOperativo": onlyOperativo or "",
         },
+        "export_query": _export_query(from_day, to_day, onlyErrors, component, onlyOperativo),
+        "export_max": reports_service.EXPORT_MAX_ROWS,
     }
     return templates.TemplateResponse(request, template_name, ctx)
+
+
+def _export_query(
+    from_day: date | None,
+    to_day: date | None,
+    only_errors: str | None,
+    component: str | None,
+    only_operativo: str | None,
+) -> str:
+    """Los filtros aplicados, listos para colgarlos del enlace de exportación."""
+    params = {
+        "from": from_day.isoformat() if from_day else None,
+        "to": to_day.isoformat() if to_day else None,
+        "onlyErrors": "true" if only_errors == "true" else None,
+        "component": component or None,
+        "onlyOperativo": only_operativo if only_operativo in ("true", "false") else None,
+    }
+    return urlencode({k: v for k, v in params.items() if v})
+
+
+@router.get("/export.csv")
+async def export_csv(
+    mode: str = Query("informes"),
+    from_: str | None = Query(None, alias="from"),
+    to: str | None = Query(None),
+    onlyErrors: str | None = Query(None),
+    component: str | None = Query(None),
+    onlyOperativo: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """Descarga lo que el panel muestra con esos filtros, sin el corte de filas."""
+    if mode not in csv_export.MODES:
+        return PlainTextResponse("Modo de exportación desconocido.", status_code=400)
+
+    from_day = _parse_day(from_)
+    to_day = _parse_day(to)
+    if from_day and to_day and to_day < from_day:
+        from_day, to_day = to_day, from_day
+    start, end = _day_bounds(from_day, to_day)
+
+    result = await reports_service.find_for_export(
+        db,
+        start=start,
+        end=end,
+        filters=ReportFilters(
+            only_errors=_parse_tri_bool(onlyErrors),
+            component=component,
+            only_operativo=_parse_tri_bool(onlyOperativo),
+        ),
+    )
+    if result.too_many:
+        return PlainTextResponse(
+            f"El rango elegido tiene {result.total_in_range} informes y el máximo exportable es "
+            f"{reports_service.EXPORT_MAX_ROWS}. Acorta el rango de fechas y vuelve a exportar.",
+            status_code=422,
+        )
+
+    body = csv_export.build_csv(
+        result.reports,
+        mode=mode,
+        component=component or None,
+        preferred=PREFERRED_COMPONENTS,
+        labels=COMPONENT_LABELS,
+        fmt_dt=_format_es_datetime,
+    )
+    span = "_".join(d.isoformat() for d in (from_day, to_day) if d) or "todo"
+    filename = f"vx-{mode}_{span}.csv"
+    return Response(
+        content=body.encode("utf-8"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
